@@ -1,5 +1,6 @@
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import express from 'express';
 import cors from 'cors';
@@ -55,7 +56,7 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-if (config.env === 'development') {
+if (config.env === 'development' && !process.env.TEST) {
   app.use(morgan('dev'));
 }
 
@@ -85,11 +86,10 @@ app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/messages', messageRoutes);
 
-// Serve static frontend build if present (e.g. from /dist or /client/dist)
+// Serve static frontend build if present
 const distPath = path.resolve(__dirname, '../dist');
 const clientDistPath = path.resolve(__dirname, '../client/dist');
 
-import fs from 'fs';
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
   app.get('*', (req, res, next) => {
@@ -139,7 +139,6 @@ io.on('connection', async (socket) => {
   onlineUsers.set(userId, socket.id);
   io.emit('user:status', { userId, status: 'online' });
 
-  // Update DB status
   await User.findByIdAndUpdate(userId, { status: 'online', lastSeen: new Date() }).catch(() => {});
 
   socket.on('room:join', (roomId) => {
@@ -177,11 +176,14 @@ io.on('connection', async (socket) => {
 });
 
 // Start Server
-const startServer = async () => {
+export const startServer = async (port = config.port) => {
   await connectDB();
-  server.listen(config.port, () => {
-    logger.success(`Server running on port ${config.port} in [${config.env}] mode`);
-    logger.info(`API Base URL: http://localhost:${config.port}/api`);
+  return new Promise((resolve) => {
+    server.listen(port, () => {
+      logger.success(`Server running on port ${port} in [${config.env}] mode`);
+      logger.info(`API Base URL: http://localhost:${port}/api`);
+      resolve(server);
+    });
   });
 };
 
@@ -198,6 +200,14 @@ const handleShutdown = async (signal) => {
 process.on('SIGTERM', () => handleShutdown('SIGTERM'));
 process.on('SIGINT', () => handleShutdown('SIGINT'));
 
-startServer();
+// Auto-start if run directly
+const isDirectRun = process.argv[1] && (
+  process.argv[1].endsWith('server.js') ||
+  process.argv[1].endsWith('server')
+);
+
+if (isDirectRun && !process.env.TEST) {
+  startServer();
+}
 
 export { app, server };
