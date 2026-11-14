@@ -28,6 +28,24 @@ const messageSchema = new mongoose.Schema(
         fileSize: { type: Number, default: 0 }
       }
     ],
+    status: {
+      type: String,
+      enum: ['sent', 'delivered', 'read'],
+      default: 'sent',
+      index: true
+    },
+    deliveredTo: [
+      {
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User'
+        },
+        deliveredAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
     readBy: [
       {
         user: {
@@ -67,5 +85,6 @@ const messageSchema = new mongoose.Schema(
 
 // Compound index for fast timeline queries within a room
 messageSchema.index({ room: 1, createdAt: -1 });
+messageSchema.index({ room: 1, status: 1 });
 
 export const Message = mongoose.model('Message', messageSchema);
