@@ -1,37 +1,66 @@
-# ChatApp • Scalable Real-time Chat Application with Complete Authentication
+# ChatApp • Scalable Real-time Chat Application
 
-A full-stack, real-time chat application featuring a robust authentication system built with **React**, **Tailwind CSS**, **Node.js**, **Express**, **MongoDB/Mongoose**, **JWT (Access & Refresh Tokens)**, and **Socket.IO**.
+A modern full-stack real-time chat application built with **React**, **Tailwind CSS**, **Node.js**, **Express**, **MongoDB/Mongoose**, **JWT (Access & Refresh Tokens)**, and **Socket.IO**.
 
 ---
 
 ## 🚀 Key Features
 
+### ⚡ Real-Time Messaging Engine (Socket.IO)
+- **Instant Delivery**: Messages sent and received in real-time over authenticated WebSocket connections.
+- **One-to-One Private Chat**: Automatic direct conversation creation between users with dedicated headers, avatars, and presence status.
+- **Online / Offline Presence**: Live presence indicators (green for online, amber for away, gray for offline) and active socket session tracking.
+- **Typing Indicators**: Real-time debounced typing broadcasts with animated bouncing dots.
+- **Delivery & Read Receipts**:
+  - `pending`: Clock spinner (optimistic UI)
+  - `sent`: Single gray tick (✓)
+  - `delivered`: Double gray ticks (✓✓)
+  - `read`: Double blue ticks (✓✓)
+- **Message Timestamps & Date Separators**: Smart timestamp formatting and calendar date dividers ("Today", "Yesterday", "Nov 14, 2026").
+- **MongoDB History & Lazy Loading**: Cursor-based infinite scroll-up pagination for historical conversations.
+- **Real-Time Notifications & Sound**: In-app floating toast alerts and synthesized Web Audio chime for incoming messages.
+- **Optimistic UI**: Immediate UI updates on send with automatic ACK reconciliation and failure retry.
+
 ### 🔐 Complete Authentication & Security
-- **User Registration & Login**: Multi-field registration with username, email, password, and custom avatar. Login supports both username or email.
-- **JWT Access & Refresh Tokens**:
-  - Short-lived Access Token (15 min) for secure API requests.
-  - Long-lived Refresh Token (7 days) with token rotation.
-  - Automatic silent token refresh via Axios interceptors on the frontend.
-- **Bcrypt Password Hashing**: Passwords and one-time verification passcodes are securely hashed with `bcryptjs`.
-- **Email OTP Verification**:
-  - Secure 6-digit numeric OTP required to activate new accounts.
-  - Configurable expiration (default: 10 minutes) and brute-force attempt limits.
-  - Supports real SMTP delivery via `nodemailer` and formatted console preview in development.
-  - Resend OTP with countdown timer (60s) and rate-limiting.
-- **Forgot & Reset Password**:
-  - Password reset via 6-digit email OTP.
-  - Automatic session revocation of old refresh tokens on password reset.
-- **Logout & Session Revocation**: Invalidates refresh tokens on the server, updates user presence to `offline`, and cleans client storage.
-- **Protected Routes & Persistent Login**:
-  - Session restoration on browser reload via `AuthContext` and `/api/auth/me`.
-  - `ProtectedRoute` and `PublicRoute` guards for navigation flow.
-- **Form Validation & Robust Error Handling**:
-  - Client-side live validation and password strength indicators.
-  - Server-side validation middlewares and uniform JSON error responses.
+- **Registration & Login**: JWT access token (15m) + refresh token (7d) rotation.
+- **Bcrypt Hashing**: Passwords and 6-digit OTP codes securely hashed.
+- **Email OTP Verification**: Required 6-digit code verification during signup with brute-force protection and resend timer.
+- **Forgot & Reset Password**: Secure self-service recovery via OTP.
+- **Protected Routes & Persistent Sessions**: Automated session restore on browser refresh.
 
 ---
 
-## 🛠️ API Endpoints
+## 📡 Socket.IO Real-Time Events
+
+| Event Name | Direction | Payload | Description |
+|---|---|---|---|
+| `room:join` | Client ➔ Server | `roomId` | Joins a channel or direct chat room |
+| `room:leave` | Client ➔ Server | `roomId` | Leaves the room |
+| `message:send` | Client ➔ Server | `{ roomId, content, clientTempId }` | Sends message instantly with ACK callback |
+| `message:received` | Server ➔ Room | `Message` | Broadcasts new message to all room members |
+| `typing:start` | Client ➔ Server | `{ roomId }` | Emits typing state |
+| `typing:stop` | Client ➔ Server | `{ roomId }` | Clears typing state |
+| `typing:status` | Server ➔ Room | `{ roomId, user, isTyping }` | Broadcasts typing state to peers |
+| `message:read` | Client ➔ Server | `{ roomId, messageIds }` | Marks messages as read |
+| `message:read_receipt` | Server ➔ Room | `{ roomId, readerId, readAt }` | Updates blue tick status in real-time |
+| `message:delivered` | Client ➔ Server | `{ roomId, messageIds }` | Acknowledges receipt delivery |
+| `message:delivered_receipt` | Server ➔ Room | `{ roomId, userId, deliveredAt }` | Updates double gray tick status |
+| `user:status` | Server ➔ All | `{ userId, status }` | Live presence update (online/offline) |
+| `notification:new_message` | Server ➔ User | `{ roomId, roomName, message }` | Direct notification for backgrounded rooms |
+
+---
+
+## 🛠️ REST API Endpoints
+
+### Real-Time Chat & Rooms
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET`  | `/api/rooms` | Fetch user channels and direct conversations |
+| `POST` | `/api/rooms` | Create a new channel or 1-on-1 direct conversation |
+| `GET`  | `/api/messages/room/:roomId` | Fetch paginated chat history (`limit`, `before` cursor) |
+| `POST` | `/api/messages` | Send message via REST (broadcasts to Socket.IO) |
+| `POST` | `/api/messages/room/:roomId/read` | Mark all unread messages in room as read |
+| `POST` | `/api/messages/:id/react` | Add/toggle emoji reaction |
 
 ### Authentication (`/api/auth`)
 | Method | Endpoint | Description |
@@ -43,68 +72,21 @@ A full-stack, real-time chat application featuring a robust authentication syste
 | `POST` | `/api/auth/refresh-token` | Rotate tokens using active refresh token |
 | `POST` | `/api/auth/forgot-password`| Send 6-digit password reset OTP to email |
 | `POST` | `/api/auth/reset-password` | Verify reset OTP & update password |
-| `POST` | `/api/auth/logout` | Revoke user session & set status to offline (Protected) |
-| `GET`  | `/api/auth/me` | Fetch currently authenticated user profile (Protected) |
-| `PUT`  | `/api/auth/profile` | Update avatar, bio, and status (Protected) |
-
-### Real-Time Chat & Rooms
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET`  | `/api/rooms` | Fetch user channels and direct conversations |
-| `POST` | `/api/rooms` | Create a new channel or direct message thread |
-| `GET`  | `/api/messages/room/:roomId` | Fetch messages in a channel or DM |
-| `POST` | `/api/messages` | Send message & broadcast via Socket.IO |
-| `POST` | `/api/messages/:id/react` | Add/toggle emoji reaction |
-
----
-
-## ⚙️ Environment Variables
-
-Located in `server/.env` (see `server/.env.example`):
-```env
-PORT=5000
-NODE_ENV=development
-CLIENT_URL=http://localhost:5173
-
-MONGODB_URI=mongodb://localhost:27017/chat_app
-USE_IN_MEMORY_DB=auto
-
-JWT_SECRET=your_jwt_access_secret_key
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_SECRET=your_jwt_refresh_secret_key
-JWT_REFRESH_EXPIRES_IN=7d
-BCRYPT_SALT_ROUNDS=10
-OTP_EXPIRY_MINUTES=10
-
-# Optional SMTP Configuration
-SMTP_HOST=
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASS=
-EMAIL_FROM="ChatApp Security" <no-reply@chatapp.local>
-```
+| `POST` | `/api/auth/logout` | Revoke user session & set status to offline |
+| `GET`  | `/api/auth/me` | Fetch currently authenticated user profile |
+| `PUT`  | `/api/auth/profile` | Update avatar, bio, and status |
 
 ---
 
 ## 🏃 Running the Application
 
-### Install Dependencies
 ```bash
-npm run install:all
-```
-
-### Run Tests
-```bash
+# Run test suite
 npm run test:server
-```
 
-### Start Development Server
-```bash
-npm run dev
-```
-
-### Production Build
-```bash
+# Build production frontend
 npm run build
+
+# Start server
 npm start
 ```
