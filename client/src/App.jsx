@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicRoute } from './components/PublicRoute';
 import { Login } from './pages/Login';
@@ -14,65 +15,67 @@ export const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* Public Auth Routes */}
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <Register />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/verify-otp"
-            element={
-              <PublicRoute>
-                <VerifyOtp />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/forgot-password"
-            element={
-              <PublicRoute>
-                <ForgotPassword />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/reset-password"
-            element={
-              <PublicRoute>
-                <ResetPassword />
-              </PublicRoute>
-            }
-          />
+        <SocketProvider>
+          <Routes>
+            {/* Public Auth Routes */}
+            <Route
+              path="/login"
+              element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <PublicRoute>
+                  <Register />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/verify-otp"
+              element={
+                <PublicRoute>
+                  <VerifyOtp />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <PublicRoute>
+                  <ForgotPassword />
+                </PublicRoute>
+              }
+            />
+            <Route
+              path="/reset-password"
+              element={
+                <PublicRoute>
+                  <ResetPassword />
+                </PublicRoute>
+              }
+            />
 
-          {/* Protected Chat Routes */}
-          <Route
-            path="/chat"
-            element={
-              <ProtectedRoute>
-                <ChatApp />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected Chat Routes */}
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <ChatApp />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Root redirect to /chat (guarded) */}
-          <Route path="/" element={<Navigate to="/chat" replace />} />
+            {/* Root redirect to /chat */}
+            <Route path="/" element={<Navigate to="/chat" replace />} />
 
-          {/* Catch-all redirect */}
-          <Route path="*" element={<Navigate to="/chat" replace />} />
-        </Routes>
+            {/* Catch-all redirect */}
+            <Route path="*" element={<Navigate to="/chat" replace />} />
+          </Routes>
+        </SocketProvider>
       </AuthProvider>
     </BrowserRouter>
   );
