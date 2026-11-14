@@ -145,7 +145,7 @@ describe('Real-Time Messaging & Socket.IO Suite', () => {
     clientSocket1.emit('room:join', roomId);
     clientSocket2.emit('room:join', roomId);
 
-    clientSocket2.on('message:received', (msg) => {
+    clientSocket2.once('message:received', (msg) => {
       assert.equal(msg.content, testContent);
       assert.equal(msg.sender.username, user1.username);
       assert.equal(msg.room, roomId);
@@ -171,7 +171,7 @@ describe('Real-Time Messaging & Socket.IO Suite', () => {
   test('Typing indicators are broadcast to other room participants', (t, done) => {
     const roomId = testRoom._id.toString();
 
-    clientSocket2.on('typing:status', (data) => {
+    clientSocket2.once('typing:status', (data) => {
       assert.equal(data.roomId, roomId);
       assert.equal(data.user.username, user1.username);
       assert.equal(data.isTyping, true);
@@ -184,9 +184,9 @@ describe('Real-Time Messaging & Socket.IO Suite', () => {
   test('Read receipts mark messages as read and broadcast to room', (t, done) => {
     const roomId = testRoom._id.toString();
 
-    clientSocket1.on('message:read_receipt', (data) => {
+    clientSocket1.once('message:read_receipt', (data) => {
       assert.equal(data.roomId, roomId);
-      assert.equal(data.readerId, user2._id.toString());
+      assert.equal(data.readerId.toString(), user2._id.toString());
       done();
     });
 
