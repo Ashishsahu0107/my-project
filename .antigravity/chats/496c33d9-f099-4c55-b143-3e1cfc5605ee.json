@@ -40,6 +40,18 @@
       "created_at": "2026-11-14T15:09:56.744Z",
       "sender": "macOS",
       "is_cancelled": false
+    },
+    {
+      "id": "9c2de6a7-fbee-4052-8083-3437799ace1e",
+      "role": "user",
+      "content": "Implement a complete real-time messaging system in my existing Chat App using Socket.IO.\n\n- Instant message sending and receiving\n- One-to-one private chat\n- Online / Offline user status\n- Typing indicators\n- Sent, Delivered and Read receipts\n- Message timestamps\n- Chat history from MongoDB\n- Real-time message notifications\n- Message pagination and lazy loading\n- Optimistic UI for instant messaging\n\nConnect React frontend, Node.js backend, MongoDB and Socket.IO. Optimize for fast message delivery and reliable real-time communication. Handle reconnection and errors properly. Do not break existing features.",
+      "status": "pending",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": null,
+      "created_at": "2026-11-14T15:11:29.230Z",
+      "sender": "ios",
+      "is_cancelled": false
     }
   ]
 }
