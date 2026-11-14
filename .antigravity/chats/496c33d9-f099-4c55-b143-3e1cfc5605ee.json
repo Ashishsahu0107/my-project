@@ -4,5 +4,18 @@
   "createdAt": "2026-11-14T14:49:26.433Z",
   "filename": "496c33d9-f099-4c55-b143-3e1cfc5605ee.json",
   "geminiStarted": false,
-  "messages": []
+  "messages": [
+    {
+      "id": "ed17f416-ba4f-4497-a266-4317cff4d503",
+      "role": "user",
+      "content": "Set up my existing Chat App frontend and backend with a professional, scalable architecture.\n\nFrontend: React.js, Tailwind CSS, React Router, Axios, responsive UI, reusable components, authentication and protected routes.\n\nBackend: Node.js, Express.js, MongoDB, Mongoose, JWT authentication, Socket.IO for real-time messaging, REST APIs, and secure middleware.\n\nCreate a clean folder structure, configure environment variables, connect frontend with backend, and implement proper error handling. Ensure fast performance, secure authentication, and smooth real-time communication.\n\nDo not break existing features or rewrite the project unnecessarily.",
+      "status": "pending",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": null,
+      "created_at": "2026-11-14T14:50:08.456Z",
+      "sender": "ios",
+      "is_cancelled": false
+    }
+  ]
 }
