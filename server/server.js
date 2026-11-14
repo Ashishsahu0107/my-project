@@ -16,6 +16,8 @@ import { logger } from './utils/logger.js';
 import { apiLimiter } from './middlewares/rateLimiter.js';
 import { notFoundHandler, errorHandler } from './middlewares/errorMiddleware.js';
 import { User } from './models/User.js';
+import { Room } from './models/Room.js';
+import { Message } from './models/Message.js';
 
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
@@ -28,13 +30,16 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const server = http.createServer(app);
 
-// Socket.IO configuration
+// Socket.IO configuration with high performance options
 const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST'],
     credentials: true
-  }
+  },
+  pingTimeout: 30000,
+  pingInterval: 15000,
+  transports: ['websocket', 'polling']
 });
 
 app.set('io', io);
@@ -111,13 +116,17 @@ app.use(errorHandler);
 // Socket.IO Authentication Middleware
 io.use(async (socket, next) => {
   try {
-    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    const token =
+      socket.handshake.auth?.token ||
+      socket.handshake.query?.token ||
+      socket.handshake.headers?.authorization?.replace('Bearer ', '');
+
     if (!token) {
       return next(new Error('Authentication token required'));
     }
 
     const decoded = jwt.verify(token, config.jwtSecret);
-    const user = await User.findById(decoded.id).select('username email avatar status');
+    const user = await User.findById(decoded.id).select('username email avatar status statusMessage lastSeen');
     if (!user) {
       return next(new Error('User not found'));
     }
@@ -125,33 +134,143 @@ io.use(async (socket, next) => {
     socket.user = user;
     next();
   } catch (err) {
-    next(new Error('Authentication failed'));
+    next(new Error('Authentication failed: ' + err.message));
   }
 });
 
-// Socket.IO Real-time Events
-const onlineUsers = new Map();
+// Real-time Presence Map: userId -> Set of socket IDs
+const onlineUserSockets = new Map();
 
 io.on('connection', async (socket) => {
   const userId = socket.user._id.toString();
-  logger.info(`Socket client connected: ${socket.user.username} (${socket.id})`);
+  const username = socket.user.username;
 
-  onlineUsers.set(userId, socket.id);
-  io.emit('user:status', { userId, status: 'online' });
+  // Manage multi-tab socket tracking
+  if (!onlineUserSockets.has(userId)) {
+    onlineUserSockets.set(userId, new Set());
+  }
+  onlineUserSockets.get(userId).add(socket.id);
 
-  await User.findByIdAndUpdate(userId, { status: 'online', lastSeen: new Date() }).catch(() => {});
+  // Automatically join personal user notification room
+  socket.join(`user:${userId}`);
 
-  socket.on('room:join', (roomId) => {
+  // Broadcast online status on first active connection
+  if (onlineUserSockets.get(userId).size === 1) {
+    io.emit('user:status', { userId, status: 'online' });
+    await User.findByIdAndUpdate(userId, { status: 'online', lastSeen: new Date() }).catch(() => {});
+  }
+
+  logger.info(`Socket connected: @${username} [socket: ${socket.id}] (active sockets: ${onlineUserSockets.get(userId).size})`);
+
+  // Send current online user IDs to the newly connected client
+  socket.emit('users:online_list', Array.from(onlineUserSockets.keys()));
+
+  // 1. Join Room
+  socket.on('room:join', async (roomId) => {
+    if (!roomId) return;
     socket.join(roomId);
-    logger.debug(`User ${socket.user.username} joined room ${roomId}`);
+    logger.debug(`User @${username} joined room ${roomId}`);
+
+    // Mark messages in this room as delivered
+    try {
+      await Message.updateMany(
+        {
+          room: roomId,
+          sender: { $ne: socket.user._id },
+          'deliveredTo.user': { $ne: socket.user._id }
+        },
+        {
+          $push: { deliveredTo: { user: socket.user._id, deliveredAt: new Date() } },
+          $set: { status: 'delivered' }
+        }
+      );
+      socket.to(roomId).emit('message:delivered_receipt', {
+        roomId,
+        userId: socket.user._id,
+        deliveredAt: new Date()
+      });
+    } catch (err) {
+      // Non-fatal
+    }
   });
 
+  // 2. Leave Room
   socket.on('room:leave', (roomId) => {
+    if (!roomId) return;
     socket.leave(roomId);
-    logger.debug(`User ${socket.user.username} left room ${roomId}`);
+    logger.debug(`User @${username} left room ${roomId}`);
   });
 
+  // 3. Instant Message Send (Socket path)
+  socket.on('message:send', async (data, callback) => {
+    try {
+      const { roomId, content, clientTempId, attachments = [] } = data;
+      if (!roomId || !content || !content.trim()) {
+        if (typeof callback === 'function') {
+          callback({ status: 'error', message: 'Room and content are required' });
+        }
+        return;
+      }
+
+      const room = await Room.findById(roomId);
+      if (!room) {
+        if (typeof callback === 'function') {
+          callback({ status: 'error', message: 'Room not found' });
+        }
+        return;
+      }
+
+      // Create message in MongoDB
+      const message = await Message.create({
+        room: roomId,
+        sender: socket.user._id,
+        content: content.trim(),
+        attachments,
+        status: 'sent'
+      });
+
+      const populated = await message.populate('sender', 'username email avatar status statusMessage lastSeen');
+
+      // Update room lastMessage & timestamp
+      room.lastMessage = message._id;
+      room.updatedAt = new Date();
+      await room.save();
+
+      const messageObj = {
+        ...populated.toObject(),
+        clientTempId
+      };
+
+      // Broadcast to room
+      io.to(roomId).emit('message:received', messageObj);
+
+      // Notify other room members who are not currently viewing this room
+      room.members.forEach((memberId) => {
+        const memberStr = memberId.toString();
+        if (memberStr !== userId) {
+          io.to(`user:${memberStr}`).emit('notification:new_message', {
+            roomId,
+            roomName: room.name,
+            roomType: room.type,
+            message: populated
+          });
+        }
+      });
+
+      if (typeof callback === 'function') {
+        callback({ status: 'ok', data: messageObj });
+      }
+    } catch (err) {
+      logger.error(`Error in message:send: ${err.message}`);
+      if (typeof callback === 'function') {
+        callback({ status: 'error', message: err.message });
+      }
+    }
+  });
+
+  // 4. Typing Indicators
   socket.on('typing:start', ({ roomId }) => {
+    if (!roomId) return;
     socket.to(roomId).emit('typing:status', {
       roomId,
       user: { id: socket.user._id, username: socket.user.username },
@@ -160,6 +279,7 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('typing:stop', ({ roomId }) => {
+    if (!roomId) return;
     socket.to(roomId).emit('typing:status', {
       roomId,
       user: { id: socket.user._id, username: socket.user.username },
@@ -167,11 +287,76 @@ io.on('connection', async (socket) => {
     });
   });
 
+  // 5. Read Receipts
+  socket.on('message:read', async ({ roomId, messageIds }) => {
+    if (!roomId) return;
+    try {
+      const query = {
+        room: roomId,
+        sender: { $ne: socket.user._id },
+        'readBy.user': { $ne: socket.user._id }
+      };
+      if (messageIds && messageIds.length > 0) {
+        query._id = { $in: messageIds };
+      }
+
+      await Message.updateMany(query, {
+        $push: { readBy: { user: socket.user._id, readAt: new Date() } },
+        $set: { status: 'read' }
+      });
+
+      io.to(roomId).emit('message:read_receipt', {
+        roomId,
+        readerId: socket.user._id,
+        messageIds,
+        readAt: new Date()
+      });
+    } catch (err) {
+      logger.error(`Error processing read receipt: ${err.message}`);
+    }
+  });
+
+  // 6. Delivered Receipts
+  socket.on('message:delivered', async ({ roomId, messageIds }) => {
+    if (!messageIds || messageIds.length === 0) return;
+    try {
+      await Message.updateMany(
+        {
+          _id: { $in: messageIds },
+          sender: { $ne: socket.user._id },
+          'deliveredTo.user': { $ne: socket.user._id }
+        },
+        {
+          $push: { deliveredTo: { user: socket.user._id, deliveredAt: new Date() } },
+          $set: { status: 'delivered' }
+        }
+      );
+
+      if (roomId) {
+        io.to(roomId).emit('message:delivered_receipt', {
+          roomId,
+          userId: socket.user._id,
+          messageIds,
+          deliveredAt: new Date()
+        });
+      }
+    } catch (err) {
+      // Non-fatal
+    }
+  });
+
+  // 7. Disconnection
   socket.on('disconnect', async () => {
-    logger.info(`Socket client disconnected: ${socket.user.username}`);
-    onlineUsers.delete(userId);
-    io.emit('user:status', { userId, status: 'offline' });
-    await User.findByIdAndUpdate(userId, { status: 'offline', lastSeen: new Date() }).catch(() => {});
+    logger.info(`Socket disconnected: @${username} [socket: ${socket.id}]`);
+    const userSockets = onlineUserSockets.get(userId);
+    if (userSockets) {
+      userSockets.delete(socket.id);
+      if (userSockets.size === 0) {
+        onlineUserSockets.delete(userId);
+        io.emit('user:status', { userId, status: 'offline', lastSeen: new Date() });
+        await User.findByIdAndUpdate(userId, { status: 'offline', lastSeen: new Date() }).catch(() => {});
+      }
+    }
   });
 });
 
