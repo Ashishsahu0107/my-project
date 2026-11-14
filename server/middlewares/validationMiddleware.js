@@ -29,12 +29,74 @@ export const validateRegister = (req, res, next) => {
 export const validateLogin = (req, res, next) => {
   const { emailOrUsername, password } = req.body;
 
-  if (!emailOrUsername || typeof emailOrUsername !== 'string') {
+  if (!emailOrUsername || typeof emailOrUsername !== 'string' || !emailOrUsername.trim()) {
     return next(ApiError.badRequest('Email or username is required'));
   }
 
   if (!password || typeof password !== 'string') {
     return next(ApiError.badRequest('Password is required'));
+  }
+
+  next();
+};
+
+export const validateVerifyOtp = (req, res, next) => {
+  const { email, otp } = req.body;
+
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return next(ApiError.badRequest('Valid email address is required'));
+  }
+
+  if (!otp || typeof otp !== 'string' || !/^\d{6}$/.test(otp.trim())) {
+    return next(ApiError.badRequest('A valid 6-digit verification code is required'));
+  }
+
+  next();
+};
+
+export const validateResendOtp = (req, res, next) => {
+  const { email } = req.body;
+
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return next(ApiError.badRequest('Valid email address is required'));
+  }
+
+  next();
+};
+
+export const validateForgotPassword = (req, res, next) => {
+  const { email } = req.body;
+
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return next(ApiError.badRequest('Valid email address is required'));
+  }
+
+  next();
+};
+
+export const validateResetPassword = (req, res, next) => {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return next(ApiError.badRequest('Valid email address is required'));
+  }
+
+  if (!otp || typeof otp !== 'string' || !/^\d{6}$/.test(otp.trim())) {
+    return next(ApiError.badRequest('A valid 6-digit verification code is required'));
+  }
+
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+    return next(ApiError.badRequest('New password must be at least 6 characters long'));
+  }
+
+  next();
+};
+
+export const validateRefreshToken = (req, res, next) => {
+  const refreshToken = req.body.refreshToken || req.headers['x-refresh-token'];
+
+  if (!refreshToken || typeof refreshToken !== 'string') {
+    return next(ApiError.badRequest('Refresh token is required'));
   }
 
   next();
