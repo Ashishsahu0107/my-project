@@ -52,6 +52,26 @@ const userSchema = new mongoose.Schema(
     lastSeen: {
       type: Date,
       default: Date.now
+    },
+    isVerified: {
+      type: Boolean,
+      default: false,
+      index: true
+    },
+    otp: {
+      code: { type: String, select: false },
+      expiresAt: { type: Date, select: false },
+      attempts: { type: Number, default: 0, select: false }
+    },
+    resetOtp: {
+      code: { type: String, select: false },
+      expiresAt: { type: Date, select: false },
+      attempts: { type: Number, default: 0, select: false }
+    },
+    refreshToken: {
+      type: String,
+      select: false,
+      default: ''
     }
   },
   {
@@ -60,6 +80,9 @@ const userSchema = new mongoose.Schema(
       virtuals: true,
       transform: (doc, ret) => {
         delete ret.password;
+        delete ret.refreshToken;
+        delete ret.otp;
+        delete ret.resetOtp;
         delete ret.__v;
         return ret;
       }
@@ -84,8 +107,8 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Instance method to generate JWT
-userSchema.methods.generateAuthToken = function () {
+// Instance method to generate JWT Access Token
+userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {
       id: this._id,
@@ -97,6 +120,25 @@ userSchema.methods.generateAuthToken = function () {
       expiresIn: config.jwtExpiresIn
     }
   );
+};
+
+// Instance method to generate JWT Refresh Token
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign(
+    {
+      id: this._id,
+      type: 'refresh'
+    },
+    config.jwtRefreshSecret,
+    {
+      expiresIn: config.jwtRefreshExpiresIn
+    }
+  );
+};
+
+// Backward-compatible auth token generator
+userSchema.methods.generateAuthToken = function () {
+  return this.generateAccessToken();
 };
 
 export const User = mongoose.model('User', userSchema);
