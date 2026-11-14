@@ -280,23 +280,11 @@ export const login = asyncHandler(async (req, res) => {
 
   // Check if email OTP verification is required
   if (!user.isVerified) {
-    // Generate and send fresh OTP for seamless verification flow
-    const otpCode = generateNumericOTP();
-    const salt = await bcrypt.genSalt(10);
-    user.otp = {
-      code: await bcrypt.hash(otpCode, salt),
-      expiresAt: new Date(Date.now() + config.otpExpiryMinutes * 60 * 1000),
-      attempts: 0
-    };
-    await user.save();
-    await sendVerificationOTP(user.email, user.username, otpCode);
-
     return res.status(403).json({
       status: 'unverified',
       requiresVerification: true,
       email: user.email,
-      message: 'Your email address is not yet verified. A new verification code has been sent.',
-      ...(config.env === 'development' && { devOtp: otpCode })
+      message: 'Your email address is not yet verified. Please verify your OTP to continue.'
     });
   }
 

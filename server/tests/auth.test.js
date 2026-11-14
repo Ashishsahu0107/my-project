@@ -1,9 +1,10 @@
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'http';
-import { app, server } from '../server.js';
-import { connectDB, closeDB } from '../config/db.js';
-import { User } from '../models/User.js';
+import { app, server, startServer } from '../server.js';
+import { closeDB } from '../config/db.js';
+
+const TEST_PORT = 5001;
 
 const makeRequest = ({ method = 'GET', path, body = null, headers = {} }) => {
   return new Promise((resolve, reject) => {
@@ -19,7 +20,7 @@ const makeRequest = ({ method = 'GET', path, body = null, headers = {} }) => {
     const req = request.request(
       {
         hostname: '127.0.0.1',
-        port: 5000,
+        port: TEST_PORT,
         path,
         method,
         headers: reqHeaders
@@ -59,13 +60,23 @@ describe('Authentication & Security Suite', () => {
     password: 'SecurePassword123!'
   };
 
+  before(async () => {
+    process.env.TEST = 'true';
+    await startServer(TEST_PORT);
+  });
+
+  after(async () => {
+    await closeDB();
+    server.close();
+  });
+
   test('Health check endpoint responds with 200', async () => {
     const res = await makeRequest({ path: '/health' });
     assert.equal(res.status, 200);
     assert.equal(res.body.status, 'healthy');
   });
 
-  test('POST /api/auth/register creates user and sends OTP', async () => {
+  test('POST /api/auth/register creates unverified user and sends OTP', async () => {
     const res = await makeRequest({
       method: 'POST',
       path: '/api/auth/register',
@@ -80,7 +91,21 @@ describe('Authentication & Security Suite', () => {
     devOtp = res.body.data.devOtp;
   });
 
-  test('POST /api/auth/verify-otp fails with wrong OTP', async () => {
+  test('POST /api/auth/login fails when user is unverified', async () => {
+    const res = await makeRequest({
+      method: 'POST',
+      path: '/api/auth/login',
+      body: {
+        emailOrUsername: testUser.email,
+        password: testUser.password
+      }
+    });
+
+    assert.equal(res.status, 403);
+    assert.equal(res.body.requiresVerification, true);
+  });
+
+  test('POST /api/auth/verify-otp fails with incorrect OTP', async () => {
     const res = await makeRequest({
       method: 'POST',
       path: '/api/auth/verify-otp',
@@ -94,7 +119,7 @@ describe('Authentication & Security Suite', () => {
     assert.equal(res.body.status, 'error');
   });
 
-  test('POST /api/auth/verify-otp succeeds with correct OTP & yields JWT tokens', async () => {
+  test('POST /api/auth/verify-otp succeeds with correct OTP & issues access + refresh tokens', async () => {
     const res = await makeRequest({
       method: 'POST',
       path: '/api/auth/verify-otp',
@@ -129,7 +154,7 @@ describe('Authentication & Security Suite', () => {
     assert.equal(res.body.data.user.email, testUser.email);
   });
 
-  test('GET /api/auth/me rejects request without token', async () => {
+  test('GET /api/auth/me rejects request without token with 401', async () => {
     const res = await makeRequest({
       method: 'GET',
       path: '/api/auth/me'
@@ -138,7 +163,7 @@ describe('Authentication & Security Suite', () => {
     assert.equal(res.status, 401);
   });
 
-  test('POST /api/auth/login succeeds with correct password', async () => {
+  test('POST /api/auth/login succeeds with correct password for verified user', async () => {
     const res = await makeRequest({
       method: 'POST',
       path: '/api/auth/login',
@@ -155,7 +180,7 @@ describe('Authentication & Security Suite', () => {
     refreshToken = res.body.data.refreshToken;
   });
 
-  test('POST /api/auth/refresh-token rotates tokens', async () => {
+  test('POST /api/auth/refresh-token rotates tokens using valid refresh token', async () => {
     const res = await makeRequest({
       method: 'POST',
       path: '/api/auth/refresh-token',
@@ -221,10 +246,5 @@ describe('Authentication & Security Suite', () => {
 
     assert.equal(res.status, 200);
     assert.equal(res.body.status, 'success');
-  });
-
-  after(async () => {
-    await closeDB();
-    server.close();
   });
 });
