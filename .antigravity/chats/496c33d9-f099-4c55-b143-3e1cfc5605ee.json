@@ -16,6 +16,18 @@
       "created_at": "2026-11-14T14:50:08.456Z",
       "sender": "ios",
       "is_cancelled": false
+    },
+    {
+      "id": "ba12f5ca-5219-4739-8cbf-37efede953b4",
+      "role": "user",
+      "content": "Implement a complete authentication system in my existing Chat App.\n\n- User Registration and Login\n- JWT access and refresh tokens\n- Secure password hashing using bcrypt\n- Email OTP verification during registration\n- Forgot and Reset Password\n- Logout functionality\n- Protected routes and persistent login\n- Form validation and error handling\n\nConnect frontend with backend APIs and MongoDB. Ensure fast authentication, secure sessions, and correct navigation after login. Do not break existing code.",
+      "status": "pending",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": null,
+      "created_at": "2026-11-14T14:55:20.203Z",
+      "sender": "ios",
+      "is_cancelled": false
     }
   ]
 }
