@@ -5,14 +5,17 @@ import { User } from '../models/User.js';
 
 export const authenticateToken = async (req, res, next) => {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw ApiError.unauthorized('Access denied. No token provided.');
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
     }
 
-    const token = authHeader.split(' ')[1];
     if (!token) {
-      throw ApiError.unauthorized('Invalid authorization header format');
+      throw ApiError.unauthorized('Access denied. No authentication token provided.');
     }
 
     const decoded = jwt.verify(token, config.jwtSecret);
@@ -37,12 +40,15 @@ export const authenticateToken = async (req, res, next) => {
 
 export const optionalAuth = async (req, res, next) => {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next();
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
     }
 
-    const token = authHeader.split(' ')[1];
     if (token) {
       const decoded = jwt.verify(token, config.jwtSecret);
       const user = await User.findById(decoded.id);
