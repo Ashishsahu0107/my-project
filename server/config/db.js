@@ -21,14 +21,18 @@ export const connectDB = async () => {
     // Attempt connecting to the configured URI
     try {
       await mongoose.connect(config.mongoUri, {
-        serverSelectionTimeoutMS: 2500
+        serverSelectionTimeoutMS: 2000
       });
       return mongoose.connection;
     } catch (directErr) {
       if (config.useInMemoryDb === 'auto' || config.useInMemoryDb === 'true') {
         logger.info('External MongoDB not reached. Initializing in-memory MongoDB for seamless development/testing...');
         const { MongoMemoryServer } = await import('mongodb-memory-server');
-        mongoMemoryServer = await MongoMemoryServer.create();
+        mongoMemoryServer = await MongoMemoryServer.create({
+          binary: {
+            version: '7.0.14'
+          }
+        });
         const memoryUri = mongoMemoryServer.getUri();
         await mongoose.connect(memoryUri);
         logger.success(`In-memory MongoDB started and connected at: ${memoryUri}`);
@@ -39,7 +43,6 @@ export const connectDB = async () => {
   } catch (error) {
     logger.error(`Failed to connect to MongoDB: ${error.message}`);
     logger.warn('Please ensure MongoDB is running or configure MONGODB_URI in .env');
-    // In production we should exit, but in dev or test we allow graceful inspection
     if (config.env === 'production') {
       process.exit(1);
     }
