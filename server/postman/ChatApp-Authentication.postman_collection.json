@@ -1,0 +1,1212 @@
+{
+  "info": {
+    "name": "ChatApp Authentication APIs",
+    "description": "User registration, OTP verification, JWT login, token refresh, password reset, profile & email updates.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Register User",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        },
+        "description": "Register a new user and send a 6-digit email verification OTP.",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"johndoe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"Password@123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "201 Created",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Register a new user and send a 6-digit email verification OTP.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"johndoe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"Password@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Registration successful! Verification code sent to your email.\",\n  \"data\": {\n    \"userId\": \"6b0735c8c8977bbe54aca202\",\n    \"email\": \"pm_a_1795634632328@example.com\",\n    \"username\": \"pm_user_a_1795634632328\",\n    \"isVerified\": false,\n    \"expiresInMinutes\": 10,\n    \"devOtp\": \"218689\"\n  }\n}"
+        },
+        {
+          "name": "400 Validation Error",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Register a new user and send a 6-digit email verification OTP.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"johndoe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"Password@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"error\",\n  \"statusCode\": 400,\n  \"message\": \"Username must be at least 3 characters long\",\n  \"stack\": \"Error: Username must be at least 3 characters long\\n    at ApiError.badRequest (file:///D:/my-project/server/utils/apiError.js:14:12)\\n    at validateRegister (file:///D:/my-project/server/middlewares/validationMiddleware.js:7:26)\\n    at Layer.handle [as handle_request] (D:\\\\my-project\\\\server\\\\node_modules\\\\express\\\\lib\\\\router\\\\layer.js:95:5)\\n    at next (D:\\\\my-project\\\\server\\\\node_modules\\\\express\\\\lib\\\\router\\\\route.js:149:13)\\n    at file:///D:/my-project/server/node_modules/express-rate-limit/dist/index.mjs:779:7\\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\\n    at async file:///D:/my-project/server/node_modules/express-rate-limit/dist/index.mjs:663:5\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Verify Email OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/verify-otp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "verify-otp"
+          ]
+        },
+        "description": "Verify 6-digit email OTP and issue JWT access + refresh tokens.",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "200 Verified",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-otp"
+              ]
+            },
+            "description": "Verify 6-digit email OTP and issue JWT access + refresh tokens.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Email verified successfully! Welcome to ChatApp.\",\n  \"data\": {\n    \"user\": {\n      \"id\": \"6b0735c8c8977bbe54aca202\",\n      \"username\": \"pm_user_a_1795634632328\",\n      \"email\": \"pm_a_1795634632328@example.com\",\n      \"avatar\": \"https://api.dicebear.com/7.x/bottts/svg?seed=pm_user_a_1795634632328\",\n      \"status\": \"online\",\n      \"statusMessage\": \"\",\n      \"isVerified\": true,\n      \"createdAt\": \"2026-11-25T19:23:52.494Z\"\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM4Yzg5NzdiYmU1NGFjYTIwMiIsInVzZXJuYW1lIjoicG1fdXNlcl9hXzE3OTU2MzQ2MzIzMjgiLCJlbWFpbCI6InBtX2FfMTc5NTYzNDYzMjMyOEBleGFtcGxlLmNvbSIsInRva2VuVmVyc2lvbiI6MCwiaWF0IjoxNzk1NjM0NjMyLCJleHAiOjE3OTU2MzU1MzJ9.po3G4SWPWuLcyCNJVorHr73cXU79G1tzWHApbvvqDgE\",\n    \"refreshToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM4Yzg5NzdiYmU1NGFjYTIwMiIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5WZXJzaW9uIjowLCJpYXQiOjE3OTU2MzQ2MzIsImV4cCI6MTc5NjIzOTQzMn0.-SJC_op7mNr7e-6kcWkcO8Wt2z2Nz6wSPz2hGCF3g80\",\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM4Yzg5NzdiYmU1NGFjYTIwMiIsInVzZXJuYW1lIjoicG1fdXNlcl9hXzE3OTU2MzQ2MzIzMjgiLCJlbWFpbCI6InBtX2FfMTc5NTYzNDYzMjMyOEBleGFtcGxlLmNvbSIsInRva2VuVmVyc2lvbiI6MCwiaWF0IjoxNzk1NjM0NjMyLCJleHAiOjE3OTU2MzU1MzJ9.po3G4SWPWuLcyCNJVorHr73cXU79G1tzWHApbvvqDgE\"\n  }\n}"
+        },
+        {
+          "name": "400 Invalid OTP",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-otp"
+              ]
+            },
+            "description": "Verify 6-digit email OTP and issue JWT access + refresh tokens.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"error\",\n  \"statusCode\": 400,\n  \"message\": \"Invalid verification code. 4 attempt(s) remaining.\",\n  \"stack\": \"Error: Invalid verification code. 4 attempt(s) remaining.\\n    at ApiError.badRequest (file:///D:/my-project/server/utils/apiError.js:14:12)\\n    at file:///D:/my-project/server/controllers/authController.js:180:20\\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Resend Verification OTP",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/resend-otp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "resend-otp"
+          ]
+        },
+        "description": "Dispatch a new 6-digit verification OTP.",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"john@example.com\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "200 Sent",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/resend-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "resend-otp"
+              ]
+            },
+            "description": "Dispatch a new 6-digit verification OTP.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"A fresh verification code has been dispatched to your email.\",\n  \"data\": {\n    \"email\": \"pm_a_1795634632328@example.com\",\n    \"expiresInMinutes\": 10,\n    \"devOtp\": \"890362\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Authenticate with username/email and password (plus optional twoStepPin).",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"emailOrUsername\": \"johndoe\",\n  \"password\": \"Password@123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "200 Logged In",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticate with username/email and password (plus optional twoStepPin).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailOrUsername\": \"johndoe\",\n  \"password\": \"Password@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Logged in successfully\",\n  \"data\": {\n    \"user\": {\n      \"id\": \"6b0735c8c8977bbe54aca202\",\n      \"username\": \"pm_user_a_1795634632328\",\n      \"email\": \"pm_a_1795634632328@example.com\",\n      \"avatar\": \"https://api.dicebear.com/7.x/bottts/svg?seed=pm_user_a_1795634632328\",\n      \"status\": \"online\",\n      \"statusMessage\": \"\",\n      \"bio\": \"\",\n      \"isVerified\": true,\n      \"createdAt\": \"2026-11-25T19:23:52.494Z\"\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM4Yzg5NzdiYmU1NGFjYTIwMiIsInVzZXJuYW1lIjoicG1fdXNlcl9hXzE3OTU2MzQ2MzIzMjgiLCJlbWFpbCI6InBtX2FfMTc5NTYzNDYzMjMyOEBleGFtcGxlLmNvbSIsInRva2VuVmVyc2lvbiI6MCwic2Vzc2lvbklkIjoiOGM1Nzc1OTgtNDY5Zi00MDZjLWI5OTQtNzliZjRhYzc5YzZhIiwiaWF0IjoxNzk1NjM0NjMzLCJleHAiOjE3OTU2MzU1MzN9.QpuP4CviLT1w7UY2OGrW7Lqt5r5leOye804eTktVpmA\",\n    \"refreshToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM4Yzg5NzdiYmU1NGFjYTIwMiIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5WZXJzaW9uIjowLCJzZXNzaW9uSWQiOiI4YzU3NzU5OC00NjlmLTQwNmMtYjk5NC03OWJmNGFjNzljNmEiLCJpYXQiOjE3OTU2MzQ2MzMsImV4cCI6MTc5NjIzOTQzM30.rFn3hCQfD7c2c3OnSvQewxm7kAKJO_D_HTeKv9bjaZE\",\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM4Yzg5NzdiYmU1NGFjYTIwMiIsInVzZXJuYW1lIjoicG1fdXNlcl9hXzE3OTU2MzQ2MzIzMjgiLCJlbWFpbCI6InBtX2FfMTc5NTYzNDYzMjMyOEBleGFtcGxlLmNvbSIsInRva2VuVmVyc2lvbiI6MCwic2Vzc2lvbklkIjoiOGM1Nzc1OTgtNDY5Zi00MDZjLWI5OTQtNzliZjRhYzc5YzZhIiwiaWF0IjoxNzk1NjM0NjMzLCJleHAiOjE3OTU2MzU1MzN9.QpuP4CviLT1w7UY2OGrW7Lqt5r5leOye804eTktVpmA\"\n  }\n}"
+        },
+        {
+          "name": "401 Invalid Credentials",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticate with username/email and password (plus optional twoStepPin).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emailOrUsername\": \"johndoe\",\n  \"password\": \"Password@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Unauthorized",
+          "code": 401,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"error\",\n  \"statusCode\": 401,\n  \"message\": \"Invalid username/email or password\",\n  \"stack\": \"Error: Invalid username/email or password\\n    at ApiError.unauthorized (file:///D:/my-project/server/utils/apiError.js:18:12)\\n    at file:///D:/my-project/server/controllers/authController.js:279:20\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Refresh Access Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/refresh-token",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "refresh-token"
+          ]
+        },
+        "description": "Rotate access and refresh tokens using an active refreshToken.",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "200 Refreshed",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh-token"
+              ]
+            },
+            "description": "Rotate access and refresh tokens using an active refreshToken.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM4Yzg5NzdiYmU1NGFjYTIwMiIsInVzZXJuYW1lIjoicG1fdXNlcl9hXzE3OTU2MzQ2MzIzMjgiLCJlbWFpbCI6InBtX2FfMTc5NTYzNDYzMjMyOEBleGFtcGxlLmNvbSIsInRva2VuVmVyc2lvbiI6MCwiaWF0IjoxNzk1NjM0NjMzLCJleHAiOjE3OTU2MzU1MzN9.NoG3_VIjLEn4n4_5EV2Og40yO3nZZWeVbxngpY-7j7E\",\n    \"refreshToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM4Yzg5NzdiYmU1NGFjYTIwMiIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5WZXJzaW9uIjowLCJpYXQiOjE3OTU2MzQ2MzMsImV4cCI6MTc5NjIzOTQzM30.usDK36tGdAN86cNGI9K-vQ1bzt93niYYRw8xgHIkOos\",\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM4Yzg5NzdiYmU1NGFjYTIwMiIsInVzZXJuYW1lIjoicG1fdXNlcl9hXzE3OTU2MzQ2MzIzMjgiLCJlbWFpbCI6InBtX2FfMTc5NTYzNDYzMjMyOEBleGFtcGxlLmNvbSIsInRva2VuVmVyc2lvbiI6MCwiaWF0IjoxNzk1NjM0NjMzLCJleHAiOjE3OTU2MzU1MzN9.NoG3_VIjLEn4n4_5EV2Og40yO3nZZWeVbxngpY-7j7E\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Forgot Password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/forgot-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "forgot-password"
+          ]
+        },
+        "description": "Send a 6-digit password reset OTP to the user email.",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"john@example.com\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "200 Dispatched",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Send a 6-digit password reset OTP to the user email.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Password reset code has been sent to your email.\",\n  \"data\": {\n    \"email\": \"pm_c_1795634632328@example.com\",\n    \"expiresInMinutes\": 10,\n    \"devOtp\": \"682502\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Reset Password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/reset-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "reset-password"
+          ]
+        },
+        "description": "Verify reset OTP and update the account password.",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewPassword@123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "200 Reset Success",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Verify reset OTP and update the account password.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewPassword@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Password has been reset successfully. You are now logged in.\",\n  \"data\": {\n    \"user\": {\n      \"id\": \"6b0735c9c8977bbe54aca21f\",\n      \"username\": \"pm_user_c_1795634632328\",\n      \"email\": \"pm_c_1795634632328@example.com\",\n      \"avatar\": \"https://api.dicebear.com/7.x/bottts/svg?seed=pm_user_c_1795634632328\",\n      \"status\": \"online\",\n      \"statusMessage\": \"\",\n      \"isVerified\": true,\n      \"createdAt\": \"2026-11-25T19:23:53.079Z\"\n    },\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM5Yzg5NzdiYmU1NGFjYTIxZiIsInVzZXJuYW1lIjoicG1fdXNlcl9jXzE3OTU2MzQ2MzIzMjgiLCJlbWFpbCI6InBtX2NfMTc5NTYzNDYzMjMyOEBleGFtcGxlLmNvbSIsInRva2VuVmVyc2lvbiI6MCwiaWF0IjoxNzk1NjM0NjMzLCJleHAiOjE3OTU2MzU1MzN9.LlZTi3d_rBJ0zXoS9nHbIc6J0o91q5eD8OBu_N1x7bo\",\n    \"refreshToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM5Yzg5NzdiYmU1NGFjYTIxZiIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5WZXJzaW9uIjowLCJpYXQiOjE3OTU2MzQ2MzMsImV4cCI6MTc5NjIzOTQzM30.uYdXyBHugVzB2OAwsEVSftvVXp8t7vjZ3L7lty7L4P4\",\n    \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZiMDczNWM5Yzg5NzdiYmU1NGFjYTIxZiIsInVzZXJuYW1lIjoicG1fdXNlcl9jXzE3OTU2MzQ2MzIzMjgiLCJlbWFpbCI6InBtX2NfMTc5NTYzNDYzMjMyOEBleGFtcGxlLmNvbSIsInRva2VuVmVyc2lvbiI6MCwiaWF0IjoxNzk1NjM0NjMzLCJleHAiOjE3OTU2MzU1MzN9.LlZTi3d_rBJ0zXoS9nHbIc6J0o91q5eD8OBu_N1x7bo\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get Current User (/me)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "me"
+          ]
+        },
+        "description": "Fetch currently authenticated user profile.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "200 Current User",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Fetch currently authenticated user profile.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"user\": {\n      \"twoStepVerification\": {\n        \"enabled\": false,\n        \"updatedAt\": null\n      },\n      \"privacySettings\": {\n        \"lastSeenVisibility\": \"everyone\",\n        \"onlineStatusVisibility\": \"everyone\",\n        \"profilePhotoVisibility\": \"everyone\",\n        \"statusVisibility\": \"everyone\"\n      },\n      \"appSettings\": {\n        \"theme\": \"dark\",\n        \"language\": \"en\",\n        \"notificationsEnabled\": true,\n        \"soundEnabled\": true,\n        \"vibrationEnabled\": true,\n        \"chatWallpaper\": \"default\",\n        \"fontSize\": \"medium\",\n        \"autoDownloadMedia\": true\n      },\n      \"_id\": \"6b0735c8c8977bbe54aca202\",\n      \"username\": \"pm_user_a_1795634632328\",\n      \"email\": \"pm_a_1795634632328@example.com\",\n      \"avatar\": \"https://api.dicebear.com/7.x/bottts/svg?seed=pm_user_a_1795634632328\",\n      \"displayName\": \"\",\n      \"phoneNumber\": \"\",\n      \"bio\": \"\",\n      \"status\": \"online\",\n      \"statusMessage\": \"\",\n      \"isVerified\": true,\n      \"blockedUsers\": [],\n      \"tokenVersion\": 0,\n      \"lastSeen\": \"2026-11-25T19:23:53.298Z\",\n      \"activeSessions\": [\n        {\n          \"sessionId\": \"8c577598-469f-406c-b994-79bf4ac79c6a\",\n          \"deviceName\": \"node\",\n          \"platform\": \"mobile\",\n          \"ipAddress\": \"::1\",\n          \"lastActiveAt\": \"2026-11-25T19:23:53.297Z\",\n          \"createdAt\": \"2026-11-25T19:23:53.297Z\",\n          \"_id\": \"6b0735c9c8977bbe54aca226\",\n          \"id\": \"6b0735c9c8977bbe54aca226\"\n        }\n      ],\n      \"createdAt\": \"2026-11-25T19:23:52.494Z\",\n      \"updatedAt\": \"2026-11-25T19:23:53.377Z\",\n      \"id\": \"6b0735c8c8977bbe54aca202\"\n    }\n  }\n}"
+        },
+        {
+          "name": "401 Unauthorized",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Fetch currently authenticated user profile.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "status": "Unauthorized",
+          "code": 401,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"error\",\n  \"statusCode\": 401,\n  \"message\": \"Access denied. No authentication token provided.\",\n  \"stack\": \"Error: Access denied. No authentication token provided.\\n    at ApiError.unauthorized (file:///D:/my-project/server/utils/apiError.js:18:12)\\n    at authenticateToken (file:///D:/my-project/server/middlewares/authMiddleware.js:18:22)\\n    at Layer.handle [as handle_request] (D:\\\\my-project\\\\server\\\\node_modules\\\\express\\\\lib\\\\router\\\\layer.js:95:5)\\n    at next (D:\\\\my-project\\\\server\\\\node_modules\\\\express\\\\lib\\\\router\\\\route.js:149:13)\\n    at Route.dispatch (D:\\\\my-project\\\\server\\\\node_modules\\\\express\\\\lib\\\\router\\\\route.js:119:3)\\n    at Layer.handle [as handle_request] (D:\\\\my-project\\\\server\\\\node_modules\\\\express\\\\lib\\\\router\\\\layer.js:95:5)\\n    at D:\\\\my-project\\\\server\\\\node_modules\\\\express\\\\lib\\\\router\\\\index.js:284:15\\n    at router.process_params (D:\\\\my-project\\\\server\\\\node_modules\\\\express\\\\lib\\\\router\\\\index.js:346:12)\\n    at next (D:\\\\my-project\\\\server\\\\node_modules\\\\express\\\\lib\\\\router\\\\index.js:280:10)\\n    at router.handle (D:\\\\my-project\\\\server\\\\node_modules\\\\express\\\\lib\\\\router\\\\index.js:175:3)\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Update Profile",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/profile",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "profile"
+          ]
+        },
+        "description": "Update username, displayName, phoneNumber, avatar, bio, statusMessage, or profilePhotoVisibility.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"displayName\": \"Ashish Sahu\",\n  \"phoneNumber\": \"+1 555 012 3456\",\n  \"bio\": \"Building ChatApp\",\n  \"statusMessage\": \"Available\",\n  \"profilePhotoVisibility\": \"everyone\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "200 Updated",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "profile"
+              ]
+            },
+            "description": "Update username, displayName, phoneNumber, avatar, bio, statusMessage, or profilePhotoVisibility.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Ashish Sahu\",\n  \"phoneNumber\": \"+1 555 012 3456\",\n  \"bio\": \"Building ChatApp\",\n  \"statusMessage\": \"Available\",\n  \"profilePhotoVisibility\": \"everyone\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"data\": {\n    \"user\": {\n      \"twoStepVerification\": {\n        \"enabled\": false,\n        \"updatedAt\": null\n      },\n      \"privacySettings\": {\n        \"lastSeenVisibility\": \"everyone\",\n        \"onlineStatusVisibility\": \"everyone\",\n        \"profilePhotoVisibility\": \"everyone\",\n        \"statusVisibility\": \"everyone\"\n      },\n      \"appSettings\": {\n        \"theme\": \"dark\",\n        \"language\": \"en\",\n        \"notificationsEnabled\": true,\n        \"soundEnabled\": true,\n        \"vibrationEnabled\": true,\n        \"chatWallpaper\": \"default\",\n        \"fontSize\": \"medium\",\n        \"autoDownloadMedia\": true\n      },\n      \"_id\": \"6b0735c8c8977bbe54aca202\",\n      \"username\": \"pm_user_a_1795634632328\",\n      \"email\": \"pm_a_1795634632328@example.com\",\n      \"avatar\": \"https://api.dicebear.com/7.x/bottts/svg?seed=pm_user_a_1795634632328\",\n      \"displayName\": \"Ashish Sahu\",\n      \"phoneNumber\": \"+1 555 012 3456\",\n      \"bio\": \"Building ChatApp\",\n      \"status\": \"online\",\n      \"statusMessage\": \"Available\",\n      \"isVerified\": true,\n      \"blockedUsers\": [],\n      \"tokenVersion\": 0,\n      \"lastSeen\": \"2026-11-25T19:23:53.298Z\",\n      \"activeSessions\": [\n        {\n          \"sessionId\": \"8c577598-469f-406c-b994-79bf4ac79c6a\",\n          \"deviceName\": \"node\",\n          \"platform\": \"mobile\",\n          \"ipAddress\": \"::1\",\n          \"lastActiveAt\": \"2026-11-25T19:23:53.297Z\",\n          \"createdAt\": \"2026-11-25T19:23:53.297Z\",\n          \"_id\": \"6b0735c9c8977bbe54aca226\",\n          \"id\": \"6b0735c9c8977bbe54aca226\"\n        }\n      ],\n      \"createdAt\": \"2026-11-25T19:23:52.494Z\",\n      \"updatedAt\": \"2026-11-25T19:23:53.388Z\",\n      \"id\": \"6b0735c8c8977bbe54aca202\"\n    }\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Request Email Change",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/email/request-change",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "email",
+            "request-change"
+          ]
+        },
+        "description": "Send 6-digit OTP to verify a new email address.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"newEmail\": \"newemail@example.com\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "200 OTP Sent",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/email/request-change",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "email",
+                "request-change"
+              ]
+            },
+            "description": "Send 6-digit OTP to verify a new email address.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newEmail\": \"newemail@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Verification code sent to your new email address\",\n  \"data\": {\n    \"newEmail\": \"pm_a_new_1795634632328@example.com\",\n    \"expiresInMinutes\": 10,\n    \"devOtp\": \"508218\"\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Verify Email Change",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/email/verify-change",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "email",
+            "verify-change"
+          ]
+        },
+        "description": "Verify 6-digit OTP and commit the new email address.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"otp\": \"123456\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "name": "200 Email Updated",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/email/verify-change",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "email",
+                "verify-change"
+              ]
+            },
+            "description": "Verify 6-digit OTP and commit the new email address.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Email address updated and verified\",\n  \"data\": {\n    \"user\": {\n      \"twoStepVerification\": {\n        \"enabled\": false,\n        \"updatedAt\": null\n      },\n      \"privacySettings\": {\n        \"lastSeenVisibility\": \"everyone\",\n        \"onlineStatusVisibility\": \"everyone\",\n        \"profilePhotoVisibility\": \"everyone\",\n        \"statusVisibility\": \"everyone\"\n      },\n      \"appSettings\": {\n        \"theme\": \"dark\",\n        \"language\": \"en\",\n        \"notificationsEnabled\": true,\n        \"soundEnabled\": true,\n        \"vibrationEnabled\": true,\n        \"chatWallpaper\": \"default\",\n        \"fontSize\": \"medium\",\n        \"autoDownloadMedia\": true\n      },\n      \"_id\": \"6b0735c8c8977bbe54aca202\",\n      \"username\": \"pm_user_a_1795634632328\",\n      \"email\": \"pm_a_new_1795634632328@example.com\",\n      \"avatar\": \"https://api.dicebear.com/7.x/bottts/svg?seed=pm_user_a_1795634632328\",\n      \"displayName\": \"Ashish Sahu\",\n      \"phoneNumber\": \"+1 555 012 3456\",\n      \"bio\": \"Building ChatApp\",\n      \"status\": \"online\",\n      \"statusMessage\": \"Available\",\n      \"isVerified\": true,\n      \"blockedUsers\": [],\n      \"tokenVersion\": 0,\n      \"lastSeen\": \"2026-11-25T19:23:53.298Z\",\n      \"activeSessions\": [\n        {\n          \"sessionId\": \"8c577598-469f-406c-b994-79bf4ac79c6a\",\n          \"deviceName\": \"node\",\n          \"platform\": \"mobile\",\n          \"ipAddress\": \"::1\",\n          \"lastActiveAt\": \"2026-11-25T19:23:53.297Z\",\n          \"createdAt\": \"2026-11-25T19:23:53.297Z\",\n          \"_id\": \"6b0735c9c8977bbe54aca226\",\n          \"id\": \"6b0735c9c8977bbe54aca226\"\n        }\n      ],\n      \"createdAt\": \"2026-11-25T19:23:52.494Z\",\n      \"updatedAt\": \"2026-11-25T19:23:53.581Z\",\n      \"id\": \"6b0735c8c8977bbe54aca202\"\n    }\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "Logout",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/logout",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "logout"
+          ]
+        },
+        "description": "Revoke user session and mark status offline.",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "200 Logged Out",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revoke user session and mark status offline.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"success\",\n  \"message\": \"Logged out successfully\"\n}"
+        }
+      ]
+    }
+  ]
+}

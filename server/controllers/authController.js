@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
@@ -262,13 +263,13 @@ export const resendOTP = asyncHandler(async (req, res) => {
  * @route  POST /api/auth/login
  */
 export const login = asyncHandler(async (req, res) => {
-  const { emailOrUsername, password } = req.body;
+  const { emailOrUsername, password, twoStepPin, deviceName, platform } = req.body;
 
   const query = emailOrUsername.includes('@')
     ? { email: emailOrUsername.toLowerCase().trim() }
     : { username: emailOrUsername.toLowerCase().trim() };
 
-  const user = await User.findOne(query).select('+password +refreshToken');
+  const user = await User.findOne(query).select('+password +refreshToken +twoStepVerification.pinHash');
   if (!user) {
     throw ApiError.unauthorized('Invalid username/email or password');
   }
@@ -288,13 +289,50 @@ export const login = asyncHandler(async (req, res) => {
     });
   }
 
+  // Enforce Two-Step Verification PIN if enabled
+  if (user.twoStepVerification?.enabled) {
+    if (!twoStepPin) {
+      return res.status(200).json({
+        status: 'two_step_required',
+        requiresTwoStep: true,
+        message: 'Two-step verification PIN is required'
+      });
+    }
+    const pinValid = await bcrypt.compare(
+      String(twoStepPin).trim(),
+      user.twoStepVerification.pinHash || ''
+    );
+    if (!pinValid) {
+      throw ApiError.unauthorized('Invalid two-step verification PIN');
+    }
+  }
+
+  const sessionId = crypto.randomUUID();
+  const resolvedDevice =
+    (typeof deviceName === 'string' && deviceName.trim()) ||
+    req.headers['user-agent']?.slice(0, 60) ||
+    'Mobile Device';
+  const resolvedPlatform = (typeof platform === 'string' && platform.trim()) || 'mobile';
+
+  user.activeSessions = [
+    ...(user.activeSessions || []).slice(-9),
+    {
+      sessionId,
+      deviceName: resolvedDevice,
+      platform: resolvedPlatform,
+      ipAddress: req.ip || '',
+      lastActiveAt: new Date(),
+      createdAt: new Date()
+    }
+  ];
+
   // Update status & timestamps
   user.status = 'online';
   user.lastSeen = new Date();
 
   // Generate JWT access & refresh tokens
-  const accessToken = user.generateAccessToken();
-  const refreshToken = user.generateRefreshToken();
+  const accessToken = user.generateAccessToken(sessionId);
+  const refreshToken = user.generateRefreshToken(sessionId);
   user.refreshToken = refreshToken;
   await user.save();
 
@@ -509,14 +547,57 @@ export const getMe = asyncHandler(async (req, res) => {
  * @route  PUT /api/auth/profile
  */
 export const updateProfile = asyncHandler(async (req, res) => {
-  const allowedUpdates = ['avatar', 'bio', 'statusMessage', 'status'];
+  const {
+    username,
+    displayName,
+    phoneNumber,
+    avatar,
+    bio,
+    statusMessage,
+    status,
+    profilePhotoVisibility
+  } = req.body;
+
   const updates = {};
 
-  allowedUpdates.forEach((field) => {
-    if (req.body[field] !== undefined) {
-      updates[field] = req.body[field];
+  if (username !== undefined) {
+    const normalized = String(username).trim().toLowerCase();
+    if (normalized.length < 3 || normalized.length > 30) {
+      throw ApiError.badRequest('Username must be between 3 and 30 characters');
     }
-  });
+    if (!/^[a-zA-Z0-9_]+$/.test(normalized)) {
+      throw ApiError.badRequest('Username can only contain letters, numbers, and underscores');
+    }
+    const existing = await User.findOne({ username: normalized, _id: { $ne: req.user._id } });
+    if (existing) {
+      throw ApiError.conflict('This username is already taken');
+    }
+    updates.username = normalized;
+  }
+
+  if (displayName !== undefined) {
+    updates.displayName = String(displayName).trim().slice(0, 60);
+  }
+
+  if (phoneNumber !== undefined) {
+    const cleanedPhone = String(phoneNumber).trim();
+    if (cleanedPhone && !/^[+\d\s()-]{6,25}$/.test(cleanedPhone)) {
+      throw ApiError.badRequest('Please enter a valid phone number');
+    }
+    updates.phoneNumber = cleanedPhone;
+  }
+
+  if (avatar !== undefined) updates.avatar = String(avatar);
+  if (bio !== undefined) updates.bio = String(bio).trim().slice(0, 160);
+  if (statusMessage !== undefined) updates.statusMessage = String(statusMessage).trim().slice(0, 100);
+  if (status !== undefined) updates.status = status;
+
+  if (profilePhotoVisibility !== undefined) {
+    if (!['everyone', 'contacts', 'nobody'].includes(profilePhotoVisibility)) {
+      throw ApiError.badRequest('Invalid profile photo visibility option');
+    }
+    updates['privacySettings.profilePhotoVisibility'] = profilePhotoVisibility;
+  }
 
   const updatedUser = await User.findByIdAndUpdate(
     req.user._id,
@@ -524,11 +605,118 @@ export const updateProfile = asyncHandler(async (req, res) => {
     { new: true, runValidators: true }
   );
 
+  const io = req.app.get('io');
+  io?.emit('user:profile_updated', {
+    userId: updatedUser._id,
+    user: updatedUser
+  });
+
   res.status(200).json({
     status: 'success',
     data: {
       user: updatedUser
     }
+  });
+});
+
+/**
+ * @desc   Request email change (sends 6-digit OTP to new email)
+ * @route  POST /api/auth/email/request-change
+ */
+export const requestEmailChange = asyncHandler(async (req, res) => {
+  const { newEmail } = req.body;
+  const normalized = String(newEmail || '').toLowerCase().trim();
+
+  if (!normalized || !/^\S+@\S+\.\S+$/.test(normalized)) {
+    throw ApiError.badRequest('Please provide a valid email address');
+  }
+
+  if (normalized === req.user.email) {
+    throw ApiError.badRequest('New email must be different from your current email');
+  }
+
+  const existing = await User.findOne({ email: normalized, _id: { $ne: req.user._id } });
+  if (existing) {
+    throw ApiError.conflict('This email address is already in use');
+  }
+
+  const otpCode = generateNumericOTP();
+  const salt = await bcrypt.genSalt(10);
+  const hashedOtp = await bcrypt.hash(otpCode, salt);
+  const expiresAt = new Date(Date.now() + config.otpExpiryMinutes * 60 * 1000);
+
+  await User.findByIdAndUpdate(req.user._id, {
+    $set: {
+      emailChangeOtp: {
+        newEmail: normalized,
+        code: hashedOtp,
+        expiresAt,
+        attempts: 0
+      }
+    }
+  });
+
+  await sendVerificationOTP(normalized, req.user.username, otpCode);
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Verification code sent to your new email address',
+    data: {
+      newEmail: normalized,
+      expiresInMinutes: config.otpExpiryMinutes,
+      ...(config.env === 'development' && { devOtp: otpCode })
+    }
+  });
+});
+
+/**
+ * @desc   Verify email change OTP and update user email
+ * @route  POST /api/auth/email/verify-change
+ */
+export const verifyEmailChange = asyncHandler(async (req, res) => {
+  const { otp } = req.body;
+  if (!otp || !/^\d{6}$/.test(String(otp).trim())) {
+    throw ApiError.badRequest('A valid 6-digit verification code is required');
+  }
+
+  const user = await User.findById(req.user._id).select(
+    '+emailChangeOtp.code +emailChangeOtp.expiresAt +emailChangeOtp.attempts'
+  );
+  if (!user || !user.emailChangeOtp?.code || !user.emailChangeOtp?.newEmail) {
+    throw ApiError.badRequest('No pending email change request found');
+  }
+
+  if (new Date() > new Date(user.emailChangeOtp.expiresAt)) {
+    throw ApiError.badRequest('Verification code has expired. Please request a new one.');
+  }
+
+  if (user.emailChangeOtp.attempts >= 5) {
+    throw ApiError.badRequest('Too many failed attempts. Please request a new code.');
+  }
+
+  const isMatch = await bcrypt.compare(String(otp).trim(), user.emailChangeOtp.code);
+  if (!isMatch) {
+    user.emailChangeOtp.attempts = (user.emailChangeOtp.attempts || 0) + 1;
+    await user.save();
+    throw ApiError.badRequest(
+      `Invalid verification code. ${5 - user.emailChangeOtp.attempts} attempt(s) remaining.`
+    );
+  }
+
+  user.email = user.emailChangeOtp.newEmail;
+  user.emailChangeOtp = undefined;
+  await user.save();
+
+  const io = req.app.get('io');
+  io?.emit('user:profile_updated', {
+    userId: user._id,
+    user
+  });
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Email address updated and verified',
+    data: { user }
   });
 });
 

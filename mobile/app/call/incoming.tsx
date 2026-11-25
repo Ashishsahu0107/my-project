@@ -54,7 +54,7 @@ export default function IncomingCallScreen() {
     rejectCall();
   };
 
-  const callerName = callState.remoteName ?? 'Unknown';
+  const callerName = callState.remoteUser?.name ?? 'Unknown';
   const callType = callState.type === 'video' ? 'Video Call' : 'Audio Call';
   const initial = callerName.charAt(0).toUpperCase();
 
@@ -68,8 +68,8 @@ export default function IncomingCallScreen() {
       {/* Center - Caller info */}
       <View style={styles.callerSection}>
         {/* Avatar */}
-        {callState.remoteAvatar ? (
-          <Image source={{ uri: callState.remoteAvatar }} style={styles.avatar} />
+        {callState.remoteUser?.avatar ? (
+          <Image source={{ uri: callState.remoteUser.avatar }} style={styles.avatar} />
         ) : (
           <View style={styles.avatarFallback}>
             <Text style={styles.avatarInitial}>{initial}</Text>
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(2, 6, 23, 0.85)',
   },
   callerSection: {

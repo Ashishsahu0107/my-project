@@ -2,11 +2,16 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { io, Socket } from 'socket.io-client';
 import { API_URL } from '../api/client';
 import { useAuth } from './AuthContext';
+import { useSettings } from './SettingsContext';
+
+const SOCKET_URL =
+  process.env.EXPO_PUBLIC_SOCKET_URL?.trim()?.replace(/\/$/, '') || API_URL;
 
 const SocketContext = createContext<{ socket: Socket | null; isConnected: boolean; onlineIds: Set<string> }>({ socket: null, isConnected: false, onlineIds: new Set() });
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
-  const { accessToken, user } = useAuth();
+  const { accessToken, user, logout, syncUser } = useAuth();
+  const { applySyncedSettings } = useSettings();
   const socketRef = useRef<Socket | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -20,7 +25,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const next = io(API_URL, { auth: { token: accessToken }, transports: ['websocket', 'polling'] });
+    const next = io(SOCKET_URL, { auth: { token: accessToken }, transports: ['websocket', 'polling'] });
     socketRef.current = next;
     setSocket(next);
 
@@ -33,6 +38,20 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         status === 'online' ? copy.add(userId) : copy.delete(userId);
         return copy;
       });
+    });
+    next.on('auth:force_logout', () => {
+      logout().catch(() => {});
+    });
+    next.on('user:profile_updated', ({ userId, user: updatedUser }: { userId: string; user: any }) => {
+      const currentId = String(user?.id || user?._id || '');
+      if (currentId && String(userId) === currentId && updatedUser) {
+        syncUser(updatedUser).catch(() => {});
+      }
+    });
+    next.on('user:settings_updated', ({ settings }: { settings: any }) => {
+      if (settings) {
+        applySyncedSettings(settings).catch(() => {});
+      }
     });
 
     return () => { next.disconnect(); socketRef.current = null; };

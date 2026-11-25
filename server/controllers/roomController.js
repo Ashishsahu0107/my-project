@@ -5,14 +5,30 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 export const getRooms = asyncHandler(async (req, res) => {
   const userId = req.user._id;
+  const userIdStr = userId.toString();
+  const filter = (req.query.filter || 'all').toLowerCase();
+  const search = (req.query.search || '').trim().toLowerCase();
 
-  // Find channels (public) or rooms where user is a member
-  const rooms = await Room.find({
+  const baseQuery = {
     $or: [
       { type: 'channel', isPrivate: false },
       { members: userId }
     ]
-  })
+  };
+
+  if (filter === 'archived') {
+    baseQuery.archivedBy = userId;
+  } else {
+    baseQuery.archivedBy = { $ne: userId };
+    if (filter === 'groups') {
+      baseQuery.type = 'group';
+    } else if (filter === 'favorites') {
+      baseQuery.favoritedBy = userId;
+    }
+  }
+
+  // Find channels (public) or rooms where user is a member
+  const rooms = await Room.find(baseQuery)
     .populate('members', 'username email avatar status statusMessage lastSeen')
     .populate({
       path: 'lastMessage',
@@ -20,10 +36,176 @@ export const getRooms = asyncHandler(async (req, res) => {
     })
     .sort({ updatedAt: -1 });
 
+  const roomIds = rooms.map((r) => r._id);
+  const unreadAgg = roomIds.length
+    ? await Message.aggregate([
+        {
+          $match: {
+            room: { $in: roomIds },
+            sender: { $ne: userId },
+            isDeleted: false,
+            deletedFor: { $ne: userId },
+            'readBy.user': { $ne: userId }
+          }
+        },
+        { $group: { _id: '$room', count: { $sum: 1 } } }
+      ])
+    : [];
+
+  const unreadMap = new Map(unreadAgg.map((item) => [item._id.toString(), item.count]));
+
+  let enrichedRooms = rooms.map((roomDoc) => {
+    const obj = roomDoc.toObject();
+    obj.unreadCount = unreadMap.get(roomDoc._id.toString()) || 0;
+    obj.isFavorite = Array.isArray(roomDoc.favoritedBy)
+      ? roomDoc.favoritedBy.some((id) => id.toString() === userIdStr)
+      : false;
+    obj.isPinned = Array.isArray(roomDoc.pinnedBy)
+      ? roomDoc.pinnedBy.some((id) => id.toString() === userIdStr)
+      : false;
+    obj.isArchived = Array.isArray(roomDoc.archivedBy)
+      ? roomDoc.archivedBy.some((id) => id.toString() === userIdStr)
+      : false;
+    return obj;
+  });
+
+  // Keep pinned chats at the top, preserving updatedAt descending order
+  enrichedRooms.sort((a, b) => {
+    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
+  if (filter === 'unread') {
+    enrichedRooms = enrichedRooms.filter((r) => r.unreadCount > 0);
+  }
+
+  if (search) {
+    enrichedRooms = enrichedRooms.filter((r) => {
+      if (r.name && r.name.toLowerCase().includes(search)) return true;
+      if (r.type === 'direct' && Array.isArray(r.members)) {
+        return r.members.some(
+          (m) =>
+            m._id?.toString() !== userIdStr &&
+            m.username?.toLowerCase().includes(search)
+        );
+      }
+      return false;
+    });
+  }
+
   res.status(200).json({
     status: 'success',
-    results: rooms.length,
-    data: { rooms }
+    results: enrichedRooms.length,
+    data: { rooms: enrichedRooms }
+  });
+});
+
+export const toggleFavoriteRoom = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+
+  const room = await Room.findById(id);
+  if (!room) {
+    throw ApiError.notFound('Room not found');
+  }
+
+  const hasAccess =
+    room.members.some((m) => m.toString() === userId.toString()) ||
+    (room.type === 'channel' && !room.isPrivate);
+  if (!hasAccess) {
+    throw ApiError.forbidden('You do not have access to this room');
+  }
+
+  const alreadyFav = room.favoritedBy.some((uid) => uid.toString() === userId.toString());
+  if (alreadyFav) {
+    room.favoritedBy = room.favoritedBy.filter((uid) => uid.toString() !== userId.toString());
+  } else {
+    room.favoritedBy.push(userId);
+  }
+  await room.save();
+
+  const io = req.app.get('io');
+  io?.to(`user:${userId.toString()}`).emit('room:preference_updated', {
+    roomId: room._id,
+    isFavorite: !alreadyFav
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      roomId: room._id,
+      isFavorite: !alreadyFav
+    }
+  });
+});
+
+export const togglePinRoom = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+
+  const room = await Room.findById(id);
+  if (!room) throw ApiError.notFound('Room not found');
+
+  const hasAccess =
+    room.members.some((m) => m.toString() === userId.toString()) ||
+    (room.type === 'channel' && !room.isPrivate);
+  if (!hasAccess) throw ApiError.forbidden('You do not have access to this room');
+
+  const alreadyPinned = room.pinnedBy.some((uid) => uid.toString() === userId.toString());
+  if (alreadyPinned) {
+    room.pinnedBy = room.pinnedBy.filter((uid) => uid.toString() !== userId.toString());
+  } else {
+    room.pinnedBy.push(userId);
+  }
+  await room.save();
+
+  const io = req.app.get('io');
+  io?.to(`user:${userId.toString()}`).emit('room:preference_updated', {
+    roomId: room._id,
+    isPinned: !alreadyPinned
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      roomId: room._id,
+      isPinned: !alreadyPinned
+    }
+  });
+});
+
+export const toggleArchiveRoom = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user._id;
+
+  const room = await Room.findById(id);
+  if (!room) throw ApiError.notFound('Room not found');
+
+  const hasAccess =
+    room.members.some((m) => m.toString() === userId.toString()) ||
+    (room.type === 'channel' && !room.isPrivate);
+  if (!hasAccess) throw ApiError.forbidden('You do not have access to this room');
+
+  const alreadyArchived = room.archivedBy.some((uid) => uid.toString() === userId.toString());
+  if (alreadyArchived) {
+    room.archivedBy = room.archivedBy.filter((uid) => uid.toString() !== userId.toString());
+  } else {
+    room.archivedBy.push(userId);
+  }
+  await room.save();
+
+  const io = req.app.get('io');
+  io?.to(`user:${userId.toString()}`).emit('room:preference_updated', {
+    roomId: room._id,
+    isArchived: !alreadyArchived
+  });
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      roomId: room._id,
+      isArchived: !alreadyArchived
+    }
   });
 });
 
@@ -84,6 +266,9 @@ export const createRoom = asyncHandler(async (req, res) => {
   }
 
   // Type === 'channel'
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    throw ApiError.badRequest('Channel name is required');
+  }
   const normalizedName = name.trim().toLowerCase().replace(/\s+/g, '-');
   const existingChannel = await Room.findOne({ name: normalizedName, type: 'channel' });
   if (existingChannel) {

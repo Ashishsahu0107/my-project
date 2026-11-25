@@ -10,6 +10,8 @@ import {
   logout,
   getMe,
   updateProfile,
+  requestEmailChange,
+  verifyEmailChange,
   registerPushToken,
   removePushToken
 } from '../controllers/authController.js';
@@ -40,6 +42,8 @@ router.post('/reset-password', authLimiter, validateResetPassword, resetPassword
 router.post('/logout', authenticateToken, logout);
 router.get('/me', authenticateToken, getMe);
 router.put('/profile', authenticateToken, updateProfile);
+router.post('/email/request-change', authenticateToken, requestEmailChange);
+router.post('/email/verify-change', authenticateToken, verifyEmailChange);
 router.post('/push-token', authenticateToken, registerPushToken);
 router.delete('/push-token', authenticateToken, removePushToken);
 

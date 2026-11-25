@@ -9,15 +9,26 @@ export default function LoginScreen() {
   const router = useRouter();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [twoStepPin, setTwoStepPin] = useState('');
+  const [needsTwoStep, setNeedsTwoStep] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
     if (!emailOrUsername.trim() || !password) return setError('Enter your username/email and password');
+    if (needsTwoStep && !twoStepPin.trim()) return setError('Enter your two-step verification PIN');
     setLoading(true);
     setError('');
     try {
-      await login(emailOrUsername.trim(), password);
+      const res = await login(
+        emailOrUsername.trim(),
+        password,
+        needsTwoStep ? twoStepPin.trim() : undefined
+      );
+      if (res && res.requiresTwoStep) {
+        setNeedsTwoStep(true);
+        return;
+      }
       router.replace('/chat');
     } catch (err: any) {
       setError(getApiErrorMessage(err));
@@ -35,6 +46,18 @@ export default function LoginScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <TextInput value={emailOrUsername} onChangeText={setEmailOrUsername} placeholder="Username or email" placeholderTextColor="#64748B" autoCapitalize="none" style={styles.input} />
         <TextInput value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor="#64748B" secureTextEntry style={styles.input} />
+        {needsTwoStep ? (
+          <TextInput
+            value={twoStepPin}
+            onChangeText={setTwoStepPin}
+            placeholder="Two-step verification PIN (4-6 digits)"
+            placeholderTextColor="#64748B"
+            keyboardType="number-pad"
+            maxLength={6}
+            secureTextEntry
+            style={styles.input}
+          />
+        ) : null}
         <Pressable onPress={submit} disabled={loading} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Sign In</Text>}
         </Pressable>

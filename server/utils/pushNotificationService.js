@@ -3,16 +3,59 @@ import { User } from '../models/User.js';
 
 const expo = new Expo();
 
-export const sendChatPushNotifications = async ({ recipientIds, senderName, roomId, roomName, roomType, content, messageId }) => {
+/**
+ * Collect user IDs of sockets currently viewing the given Socket.IO room.
+ */
+export function getActiveRoomUserIds(io, roomId) {
+  const activeUserIds = new Set();
+  if (!io || !roomId) return activeUserIds;
+
+  const socketIds = io.sockets?.adapter?.rooms?.get(roomId.toString());
+  if (!socketIds) return activeUserIds;
+
+  for (const socketId of socketIds) {
+    const sock = io.sockets.sockets.get(socketId);
+    const uid = sock?.user?._id?.toString();
+    if (uid) activeUserIds.add(uid);
+  }
+  return activeUserIds;
+}
+
+export const sendChatPushNotifications = async ({
+  io,
+  recipientIds,
+  senderId,
+  senderName,
+  roomId,
+  roomName,
+  roomType,
+  content,
+  messageId
+}) => {
   if (!recipientIds?.length) return;
 
-  const recipients = await User.find({ _id: { $in: recipientIds } }).select('pushTokens');
+  // Exclude sender and anyone currently active in this room
+  const activeRoomUserIds = getActiveRoomUserIds(io, roomId);
+  const filteredRecipientIds = recipientIds.filter((id) => {
+    const idStr = id.toString();
+    if (senderId && idStr === senderId.toString()) return false;
+    if (activeRoomUserIds.has(idStr)) return false;
+    return true;
+  });
+
+  if (!filteredRecipientIds.length) return;
+
+  const recipients = await User.find({ _id: { $in: filteredRecipientIds } }).select('pushTokens');
   const messages = [];
   const invalidTokens = [];
+  const seenTokens = new Set();
 
   recipients.forEach((recipient) => {
     recipient.pushTokens.forEach((entry) => {
       const token = entry.token;
+      if (!token || seenTokens.has(token)) return;
+      seenTokens.add(token);
+
       if (!Expo.isExpoPushToken(token)) {
         invalidTokens.push({ recipientId: recipient._id, token });
         return;
@@ -37,7 +80,9 @@ export const sendChatPushNotifications = async ({ recipientIds, senderName, room
   });
 
   for (const invalid of invalidTokens) {
-    await User.findByIdAndUpdate(invalid.recipientId, { $pull: { pushTokens: { token: invalid.token } } });
+    await User.findByIdAndUpdate(invalid.recipientId, {
+      $pull: { pushTokens: { token: invalid.token } }
+    });
   }
 
   if (!messages.length) return;
@@ -48,7 +93,11 @@ export const sendChatPushNotifications = async ({ recipientIds, senderName, room
       const receipts = await expo.sendPushNotificationsAsync(chunk);
       const staleTokens = [];
       receipts.forEach((receipt, index) => {
-        if (receipt.status === 'error' && receipt.details?.error === 'DeviceNotRegistered') {
+        if (
+          receipt.status === 'error' &&
+          (receipt.details?.error === 'DeviceNotRegistered' ||
+            receipt.details?.error === 'InvalidCredentials')
+        ) {
           staleTokens.push(chunk[index].to);
         }
       });

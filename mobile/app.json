@@ -6,9 +6,15 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#020617"
+    },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.chatapp.mobile",
       "infoPlist": {
         "NSCameraUsageDescription": "ChatApp uses your camera for video calls",
         "NSMicrophoneUsageDescription": "ChatApp uses your microphone for audio and video calls"
@@ -16,14 +22,16 @@
     },
     "android": {
       "package": "com.chatapp.mobile",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
         "backgroundColor": "#020617"
       },
       "predictiveBackGestureEnabled": false,
-      "usesCleartextTraffic": true,
       "permissions": [
-        "POST_NOTIFICATIONS",
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -37,16 +45,21 @@
       "expo-status-bar",
       "expo-notifications",
       [
-        "react-native-webrtc",
+        "expo-image-picker",
         {
-          "cameraPermission": "Allow ChatApp to access your camera for video calls",
-          "microphonePermission": "Allow ChatApp to access your microphone for calls"
+          "photosPermission": "Allow ChatApp to access your photos to update your profile picture."
         }
       ]
     ],
     "extra": {
       "router": {
-        "origin": false
+        "origin": false,
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "287a4da4-3f19-4825-8da2-9170e0b442a4"
       }
     }
   }

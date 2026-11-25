@@ -25,7 +25,20 @@ export const authenticateToken = async (req, res, next) => {
       throw ApiError.unauthorized('User associated with this token no longer exists');
     }
 
+    if ((decoded.tokenVersion ?? 0) < (user.tokenVersion ?? 0)) {
+      throw ApiError.unauthorized('Session expired. Please log in again.');
+    }
+
+    if (
+      decoded.sessionId &&
+      Array.isArray(user.activeSessions) &&
+      !user.activeSessions.some((s) => s.sessionId === decoded.sessionId)
+    ) {
+      throw ApiError.unauthorized('This device session was revoked.');
+    }
+
     req.user = user;
+    req.sessionId = decoded.sessionId || null;
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {

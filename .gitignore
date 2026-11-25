@@ -28,6 +28,14 @@ server/.env
 server/.env.local
 server/.env.*.local
 
+# Signing & Play Store keys
+*.jks
+*.keystore
+*.p8
+*.p12
+google-play-service-account.json
+mobile/google-play-service-account.json
+
 # Do not ignore environment templates
 !.env.example
 !server/.env.example

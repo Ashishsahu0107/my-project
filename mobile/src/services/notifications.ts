@@ -7,14 +7,55 @@ import { api, TOKEN_KEY } from '../api/client';
 
 export const PUSH_TOKEN_KEY = 'chatapp_expo_push_token';
 
+let activeChatRoomId: string | null = null;
+const seenNotificationMessageIds = new Set<string>();
+
+export function setActiveChatRoomId(roomId: string | null) {
+  activeChatRoomId = roomId;
+}
+
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true
-  })
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data as {
+      kind?: string;
+      roomId?: string;
+      messageId?: string;
+    };
+
+    const isSameActiveRoom =
+      data?.kind === 'chat-message' &&
+      Boolean(data?.roomId) &&
+      data.roomId === activeChatRoomId;
+
+    const isDuplicateMessage =
+      Boolean(data?.messageId) && seenNotificationMessageIds.has(data.messageId as string);
+
+    if (data?.messageId) {
+      seenNotificationMessageIds.add(data.messageId);
+      if (seenNotificationMessageIds.size > 200) {
+        const first = seenNotificationMessageIds.values().next().value;
+        if (first) seenNotificationMessageIds.delete(first);
+      }
+    }
+
+    if (isSameActiveRoom || isDuplicateMessage) {
+      return {
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      };
+    }
+
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    };
+  },
 });
 
 export async function configureAndroidChannel() {
@@ -26,7 +67,7 @@ export async function configureAndroidChannel() {
     lightColor: '#6366F1',
     sound: 'default',
     enableVibrate: true,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
   });
 }
 
@@ -44,8 +85,7 @@ export async function registerPushNotifications() {
   if (finalStatus !== 'granted') return null;
 
   const projectId =
-    Constants.easConfig?.projectId ||
-    Constants.expoConfig?.extra?.eas?.projectId;
+    Constants.easConfig?.projectId || Constants.expoConfig?.extra?.eas?.projectId;
 
   const tokenResponse = await Notifications.getExpoPushTokenAsync(
     projectId ? { projectId } : undefined
@@ -58,7 +98,7 @@ export async function registerPushNotifications() {
   await api.post('/auth/push-token', {
     token,
     platform: Platform.OS,
-    deviceId: Constants.sessionId || ''
+    deviceId: Constants.sessionId || '',
   });
   await SecureStore.setItemAsync(PUSH_TOKEN_KEY, token);
   return token;
@@ -67,7 +107,9 @@ export async function registerPushNotifications() {
 export async function unregisterPushNotifications() {
   const token = await SecureStore.getItemAsync(PUSH_TOKEN_KEY);
   if (token) {
-    try { await api.delete('/auth/push-token', { data: { token } }); } catch {}
+    try {
+      await api.delete('/auth/push-token', { data: { token } });
+    } catch {}
     await SecureStore.deleteItemAsync(PUSH_TOKEN_KEY);
   }
 }

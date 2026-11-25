@@ -408,7 +408,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const pc = peerConnectionRef.current;
       if (!pc || !socket) return;
       try {
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        if (!offer.sdp) throw new Error('Missing WebRTC offer SDP');
+        await pc.setRemoteDescription(new RTCSessionDescription({ type: offer.type, sdp: offer.sdp }));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(new RTCSessionDescription(answer));
         const targetUserId = remoteUserRef.current?.id ?? '';
@@ -426,7 +427,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const pc = peerConnectionRef.current;
       if (!pc) return;
       try {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        if (!answer.sdp) throw new Error('Missing WebRTC answer SDP');
+        await pc.setRemoteDescription(new RTCSessionDescription({ type: answer.type, sdp: answer.sdp }));
       } catch (err) {
         console.error('[CallContext] onWebRTCAnswer error:', err);
       }

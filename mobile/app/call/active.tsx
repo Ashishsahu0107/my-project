@@ -30,7 +30,7 @@ export default function ActiveCallScreen() {
   const { formattedDuration } = useCallTimer(callState.startedAt);
 
   const isVideo = callState.type === 'video';
-  const remoteName = callState.remoteName ?? 'Unknown';
+  const remoteName = callState.remoteUser?.name ?? 'Unknown';
   const initial = remoteName.charAt(0).toUpperCase();
 
   // Navigate away when call ends
@@ -148,8 +148,8 @@ export default function ActiveCallScreen() {
       <SafeAreaView style={styles.audioSafeArea} edges={['bottom']}>
         {/* Center - remote user info */}
         <View style={styles.audioCenter}>
-          {callState.remoteAvatar ? (
-            <Image source={{ uri: callState.remoteAvatar }} style={styles.audioAvatar} />
+          {callState.remoteUser?.avatar ? (
+            <Image source={{ uri: callState.remoteUser.avatar }} style={styles.audioAvatar} />
           ) : (
             <View style={styles.audioAvatarFallback}>
               <Text style={styles.audioAvatarInitial}>{initial}</Text>
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
 
   // VIDEO styles
   remoteStream: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   streamPlaceholder: {
     backgroundColor: '#0F172A',

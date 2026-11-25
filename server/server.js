@@ -25,6 +25,9 @@ import userRoutes from './routes/userRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import callRoutes from './routes/callRoutes.js';
+import backupRoutes from './routes/backupRoutes.js';
+import securityRoutes from './routes/securityRoutes.js';
+import settingsRoutes from './routes/settingsRoutes.js';
 import { Call } from './models/Call.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -94,6 +97,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/calls', callRoutes);
+app.use('/api/backup', backupRoutes);
+app.use('/api/security', securityRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Serve static frontend build if present
 const distPath = path.resolve(__dirname, '../dist');
@@ -130,9 +136,14 @@ io.use(async (socket, next) => {
     }
 
     const decoded = jwt.verify(token, config.jwtSecret);
-    const user = await User.findById(decoded.id).select('username email avatar status statusMessage lastSeen');
+    const user = await User.findById(decoded.id).select(
+      'username email avatar status statusMessage lastSeen tokenVersion privacySettings blockedUsers'
+    );
     if (!user) {
       return next(new Error('User not found'));
+    }
+    if ((decoded.tokenVersion ?? 0) < (user.tokenVersion ?? 0)) {
+      return next(new Error('Session expired'));
     }
 
     socket.user = user;
@@ -161,10 +172,13 @@ io.on('connection', async (socket) => {
   // Automatically join personal user notification room
   socket.join(`user:${userId}`);
 
-  // Broadcast online status on first active connection
+  // Broadcast online status on first active connection (respecting privacy)
   if (onlineUserSockets.get(userId).size === 1) {
-    io.emit('user:status', { userId, status: 'online' });
-    await User.findByIdAndUpdate(userId, { status: 'online', lastSeen: new Date() }).catch(() => {});
+    const hideOnline = socket.user.privacySettings?.onlineStatusVisibility === 'nobody';
+    if (!hideOnline) {
+      io.emit('user:status', { userId, status: 'online' });
+      await User.findByIdAndUpdate(userId, { status: 'online', lastSeen: new Date() }).catch(() => {});
+    }
   }
 
   logger.info(`Socket connected: @${username} [socket: ${socket.id}] (active sockets: ${onlineUserSockets.get(userId).size})`);
@@ -215,7 +229,15 @@ io.on('connection', async (socket) => {
   // 3. Instant Message Send (Socket path)
   socket.on('message:send', async (data, callback) => {
     try {
-      const { roomId, content, clientTempId, attachments = [] } = data;
+      const {
+        roomId,
+        content,
+        clientTempId,
+        attachments = [],
+        replyTo = null,
+        isForwarded = false,
+        forwardedFrom = null
+      } = data;
       if (!roomId || !content || !content.trim()) {
         if (typeof callback === 'function') {
           callback({ status: 'error', message: 'Room and content are required' });
@@ -239,16 +261,43 @@ io.on('connection', async (socket) => {
         return;
       }
 
+      if (room.type === 'direct') {
+        const otherId = room.members.find((id) => id.toString() !== userId);
+        if (otherId) {
+          const otherDoc = await User.findById(otherId).select('blockedUsers');
+          const blocked =
+            socket.user.blockedUsers?.some((id) => id.toString() === otherId.toString()) ||
+            otherDoc?.blockedUsers?.some((id) => id.toString() === userId);
+          if (blocked) {
+            if (typeof callback === 'function') {
+              callback({ status: 'error', message: 'Cannot send message to a blocked user' });
+            }
+            return;
+          }
+        }
+      }
+
       // Create message in MongoDB
       const message = await Message.create({
         room: roomId,
         sender: socket.user._id,
         content: content.trim(),
         attachments,
-        status: 'sent'
+        status: 'sent',
+        replyTo: replyTo || null,
+        isForwarded: Boolean(isForwarded),
+        forwardedFrom: forwardedFrom || null
       });
 
-      const populated = await message.populate('sender', 'username email avatar status statusMessage lastSeen');
+      const populated = await message.populate([
+        { path: 'sender', select: 'username email avatar status statusMessage lastSeen' },
+        {
+          path: 'replyTo',
+          select: 'content sender isDeleted createdAt',
+          populate: { path: 'sender', select: 'username avatar' }
+        },
+        { path: 'forwardedFrom', select: 'username avatar' }
+      ]);
 
       // Update room lastMessage & timestamp
       room.lastMessage = message._id;
@@ -278,6 +327,8 @@ io.on('connection', async (socket) => {
 
       // Send push notifications for mobile devices
       sendChatPushNotifications({
+        io,
+        senderId: userId,
         recipientIds: room.members.filter((id) => id.toString() !== userId),
         senderName: socket.user.username,
         roomId,
@@ -384,6 +435,16 @@ io.on('connection', async (socket) => {
 
       const calleeIdStr = calleeId.toString();
       const isCalleeOnline = onlineUserSockets.has(calleeIdStr);
+
+      // Check if either user has blocked the other
+      const calleeDoc = await User.findById(calleeIdStr).select('blockedUsers');
+      const isBlocked =
+        socket.user.blockedUsers?.some((id) => id.toString() === calleeIdStr) ||
+        calleeDoc?.blockedUsers?.some((id) => id.toString() === userId);
+      if (isBlocked) {
+        socket.emit('call:failed', { callId, reason: 'user_blocked' });
+        return;
+      }
 
       // Check if callee is already in an active call
       const calleeAlreadyInCall = Array.from(activeCalls.values()).some(

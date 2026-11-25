@@ -1,19 +1,29 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import * as Device from 'expo-device';
 import * as SecureStore from 'expo-secure-store';
 import { api, TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY } from '../api/client';
 import { registerPushNotifications, unregisterPushNotifications } from '../services/notifications';
+import { runAutoBackupIfDue } from '../services/backupService';
 
 type AuthContextValue = {
   user: any | null;
   accessToken: string | null;
   isLoading: boolean;
-  login: (emailOrUsername: string, password: string) => Promise<void>;
+  login: (
+    emailOrUsername: string,
+    password: string,
+    twoStepPin?: string
+  ) => Promise<{ requiresTwoStep?: boolean } | void>;
   register: (data: any) => Promise<any>;
   verifyOTP: (email: string, otp: string) => Promise<void>;
   resendOTP: (email: string) => Promise<any>;
   forgotPassword: (email: string) => Promise<any>;
   resetPassword: (email: string, otp: string, newPassword: string) => Promise<void>;
   updateProfile: (updates: any) => Promise<any>;
+  requestEmailChange: (newEmail: string) => Promise<any>;
+  verifyEmailChange: (otp: string) => Promise<any>;
+  syncUser: (nextUser: any) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -37,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(currentUser);
           await SecureStore.setItemAsync(USER_KEY, JSON.stringify(currentUser));
           registerPushNotifications().catch(() => {});
+          runAutoBackupIfDue().catch(() => {});
         }
       } catch {
         await SecureStore.deleteItemAsync(TOKEN_KEY);
@@ -60,9 +71,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     registerPushNotifications().catch(() => {});
   };
 
-  const login = async (emailOrUsername: string, password: string) => {
-    const response = await api.post('/auth/login', { emailOrUsername, password });
+  const login = async (emailOrUsername: string, password: string, twoStepPin?: string) => {
+    const response = await api.post('/auth/login', {
+      emailOrUsername,
+      password,
+      ...(twoStepPin ? { twoStepPin } : {}),
+      deviceName: Device.modelName || Device.deviceName || 'Mobile Device',
+      platform: Platform.OS,
+    });
+    if (response.data?.requiresTwoStep) {
+      return { requiresTwoStep: true };
+    }
     await saveSession(response.data.data);
+    return { requiresTwoStep: false };
   };
 
   const register = async (data: any) => {
@@ -90,11 +111,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await saveSession(response.data.data);
   };
 
+  const syncUser = async (nextUser: any) => {
+    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(nextUser));
+    setUser(nextUser);
+  };
+
   const updateProfile = async (updates: any) => {
     const response = await api.put('/auth/profile', updates);
     const nextUser = response.data.data.user;
-    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(nextUser));
-    setUser(nextUser);
+    await syncUser(nextUser);
+    return nextUser;
+  };
+
+  const requestEmailChange = async (newEmail: string) => {
+    const response = await api.post('/auth/email/request-change', { newEmail });
+    return response.data;
+  };
+
+  const verifyEmailChange = async (otp: string) => {
+    const response = await api.post('/auth/email/verify-change', { otp });
+    const nextUser = response.data.data.user;
+    await syncUser(nextUser);
     return nextUser;
   };
 
@@ -109,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, isLoading, login, register, verifyOTP, resendOTP, forgotPassword, resetPassword, updateProfile, logout }}>
+    <AuthContext.Provider value={{ user, accessToken, isLoading, login, register, verifyOTP, resendOTP, forgotPassword, resetPassword, updateProfile, requestEmailChange, verifyEmailChange, syncUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

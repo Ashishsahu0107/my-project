@@ -47,10 +47,26 @@ A modern full-stack real-time chat application built with **React**, **Tailwind 
 | `message:delivered_receipt` | Server ➔ Room | `{ roomId, userId, deliveredAt }` | Updates double gray tick status |
 | `user:status` | Server ➔ All | `{ userId, status }` | Live presence update (online/offline) |
 | `notification:new_message` | Server ➔ User | `{ roomId, roomName, message }` | Direct notification for backgrounded rooms |
+| `call:initiate` | Client ➔ Server | `{ calleeId, type, callId }` | Start 1-to-1 audio/video call |
+| `call:incoming` | Server ➔ Callee | `{ callId, callerId, callerName, callerAvatar, type }` | Incoming call alert |
+| `call:accept` / `call:accepted` | Callee ➔ Caller | `{ callId }` | Accept call and trigger WebRTC handshake |
+| `call:reject` / `call:rejected` | Callee ➔ Caller | `{ callId, reason }` | Decline or busy response |
+| `call:end` / `call:ended` | Peer ➔ Peer | `{ callId, duration? }` | End active call (or disconnect cleanup) |
+| `call:cancel` / `call:cancelled` | Caller ➔ Callee | `{ callId }` | Cancel outgoing call before answer |
+| `call:no_answer` / `call:missed` | Caller ➔ Callee | `{ callId, callerName? }` | Mark unanswered call as missed |
+| `call:webrtc_offer` / `answer` / `ice` | Peer ➔ Peer | `{ callId, offer \| answer \| candidate, targetUserId }` | WebRTC SDP & ICE signaling relay |
 
 ---
 
 ## 🛠️ REST API Endpoints
+
+> Full API reference is documented in [API.md](./API.md).
+
+### Calls (`/api/calls`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/calls/history` | Fetch paginated call history (`page`, `limit`) |
+| `GET` | `/api/calls/stats` | Fetch total calls, missed calls, and total duration |
 
 ### Real-Time Chat & Rooms
 | Method | Endpoint | Description |

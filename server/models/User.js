@@ -34,6 +34,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    displayName: {
+      type: String,
+      trim: true,
+      maxlength: [60, 'Name cannot exceed 60 characters'],
+      default: ''
+    },
+    phoneNumber: {
+      type: String,
+      trim: true,
+      maxlength: [25, 'Phone number cannot exceed 25 characters'],
+      default: ''
+    },
     bio: {
       type: String,
       maxlength: [160, 'Bio cannot exceed 160 characters'],
@@ -68,6 +80,12 @@ const userSchema = new mongoose.Schema(
       expiresAt: { type: Date, select: false },
       attempts: { type: Number, default: 0, select: false }
     },
+    emailChangeOtp: {
+      newEmail: { type: String, default: '' },
+      code: { type: String, select: false },
+      expiresAt: { type: Date, select: false },
+      attempts: { type: Number, default: 0, select: false }
+    },
     refreshToken: {
       type: String,
       select: false,
@@ -80,7 +98,64 @@ const userSchema = new mongoose.Schema(
         deviceId: { type: String, default: '' },
         updatedAt: { type: Date, default: Date.now }
       }
-    ]
+    ],
+    twoStepVerification: {
+      enabled: { type: Boolean, default: false },
+      pinHash: { type: String, select: false, default: '' },
+      updatedAt: { type: Date, default: null }
+    },
+    privacySettings: {
+      lastSeenVisibility: {
+        type: String,
+        enum: ['everyone', 'contacts', 'nobody'],
+        default: 'everyone'
+      },
+      onlineStatusVisibility: {
+        type: String,
+        enum: ['everyone', 'contacts', 'nobody'],
+        default: 'everyone'
+      },
+      profilePhotoVisibility: {
+        type: String,
+        enum: ['everyone', 'contacts', 'nobody'],
+        default: 'everyone'
+      },
+      statusVisibility: {
+        type: String,
+        enum: ['everyone', 'contacts', 'nobody'],
+        default: 'everyone'
+      }
+    },
+    blockedUsers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    activeSessions: [
+      {
+        sessionId: { type: String, required: true },
+        deviceName: { type: String, default: 'Mobile Device' },
+        platform: { type: String, default: 'unknown' },
+        ipAddress: { type: String, default: '' },
+        lastActiveAt: { type: Date, default: Date.now },
+        createdAt: { type: Date, default: Date.now }
+      }
+    ],
+    tokenVersion: {
+      type: Number,
+      default: 0
+    },
+    appSettings: {
+      theme: { type: String, enum: ['light', 'dark', 'system'], default: 'dark' },
+      language: { type: String, enum: ['en', 'hi', 'es', 'fr'], default: 'en' },
+      notificationsEnabled: { type: Boolean, default: true },
+      soundEnabled: { type: Boolean, default: true },
+      vibrationEnabled: { type: Boolean, default: true },
+      chatWallpaper: { type: String, default: 'default' },
+      fontSize: { type: String, enum: ['small', 'medium', 'large'], default: 'medium' },
+      autoDownloadMedia: { type: Boolean, default: true }
+    }
   },
   {
     timestamps: true,
@@ -91,7 +166,11 @@ const userSchema = new mongoose.Schema(
         delete ret.refreshToken;
         delete ret.otp;
         delete ret.resetOtp;
+        delete ret.emailChangeOtp;
         delete ret.pushTokens;
+        if (ret.twoStepVerification) {
+          delete ret.twoStepVerification.pinHash;
+        }
         delete ret.__v;
         return ret;
       }
@@ -117,12 +196,14 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 // Instance method to generate JWT Access Token
-userSchema.methods.generateAccessToken = function () {
+userSchema.methods.generateAccessToken = function (sessionId = null) {
   return jwt.sign(
     {
       id: this._id,
       username: this.username,
-      email: this.email
+      email: this.email,
+      tokenVersion: this.tokenVersion || 0,
+      ...(sessionId ? { sessionId } : {})
     },
     config.jwtSecret,
     {
@@ -132,11 +213,13 @@ userSchema.methods.generateAccessToken = function () {
 };
 
 // Instance method to generate JWT Refresh Token
-userSchema.methods.generateRefreshToken = function () {
+userSchema.methods.generateRefreshToken = function (sessionId = null) {
   return jwt.sign(
     {
       id: this._id,
-      type: 'refresh'
+      type: 'refresh',
+      tokenVersion: this.tokenVersion || 0,
+      ...(sessionId ? { sessionId } : {})
     },
     config.jwtRefreshSecret,
     {

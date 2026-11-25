@@ -4,6 +4,9 @@ import {
   getRoomById,
   createRoom,
   joinRoom,
+  toggleFavoriteRoom,
+  togglePinRoom,
+  toggleArchiveRoom,
   createGroup,
   updateGroup,
   addGroupMembers,
@@ -23,6 +26,9 @@ router.get('/', getRooms);
 router.get('/:id', getRoomById);
 router.post('/', validateRoom, createRoom);
 router.post('/:id/join', joinRoom);
+router.post('/:id/favorite', toggleFavoriteRoom);
+router.post('/:id/pin', togglePinRoom);
+router.post('/:id/archive', toggleArchiveRoom);
 router.post('/group', createGroup);
 router.put('/group/:id', updateGroup);
 router.post('/group/:id/members', addGroupMembers);

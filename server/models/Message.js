@@ -76,6 +76,21 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    deletedFor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    isForwarded: {
+      type: Boolean,
+      default: false
+    },
+    forwardedFrom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
     replyTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Message',
@@ -91,5 +106,7 @@ const messageSchema = new mongoose.Schema(
 // Compound index for fast timeline queries within a room
 messageSchema.index({ room: 1, createdAt: -1 });
 messageSchema.index({ room: 1, status: 1 });
+messageSchema.index({ room: 1, isDeleted: 1, createdAt: -1 });
+messageSchema.index({ content: 'text' });
 
 export const Message = mongoose.model('Message', messageSchema);

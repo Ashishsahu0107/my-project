@@ -139,7 +139,7 @@ export default function CallHistoryScreen() {
           onEndReached={loadMore}
           onEndReachedThreshold={0.3}
           ListFooterComponent={
-            loadingMore ? <ActivityIndicator color="#6366F1" style={{ marginVertical: 16 }} /> : null
+            loadingMore ? <ActivityIndicator color="#6366F1" style={{ marginVertical: 16 }} /> : <></>
           }
         />
       )}

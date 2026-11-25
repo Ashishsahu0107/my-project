@@ -46,7 +46,25 @@ const roomSchema = new mongoose.Schema(
     avatar: {
       type: String,
       default: ''
-    }
+    },
+    favoritedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    pinnedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    archivedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ]
   },
   {
     timestamps: true,
@@ -57,5 +75,9 @@ const roomSchema = new mongoose.Schema(
 // Index to quickly query rooms for a specific user
 roomSchema.index({ members: 1 });
 roomSchema.index({ updatedAt: -1 });
+roomSchema.index({ favoritedBy: 1 });
+roomSchema.index({ pinnedBy: 1 });
+roomSchema.index({ archivedBy: 1 });
+roomSchema.index({ name: 1, type: 1 });
 
 export const Room = mongoose.model('Room', roomSchema);
