@@ -9,7 +9,9 @@ import {
   resetPassword,
   logout,
   getMe,
-  updateProfile
+  updateProfile,
+  registerPushToken,
+  removePushToken
 } from '../controllers/authController.js';
 import {
   validateRegister,
@@ -38,5 +40,7 @@ router.post('/reset-password', authLimiter, validateResetPassword, resetPassword
 router.post('/logout', authenticateToken, logout);
 router.get('/me', authenticateToken, getMe);
 router.put('/profile', authenticateToken, updateProfile);
+router.post('/push-token', authenticateToken, registerPushToken);
+router.delete('/push-token', authenticateToken, removePushToken);
 
 export default router;

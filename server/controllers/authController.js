@@ -531,3 +531,39 @@ export const updateProfile = asyncHandler(async (req, res) => {
     }
   });
 });
+
+/**
+ * @desc   Register device push notification token
+ * @route  POST /api/auth/push-tokens/register
+ */
+export const registerPushToken = asyncHandler(async (req, res) => {
+  const { token, platform = 'unknown', deviceId = '' } = req.body;
+  if (!token || typeof token !== 'string') throw ApiError.badRequest('Expo push token is required');
+
+  const user = await User.findById(req.user._id);
+  if (!user) throw ApiError.notFound('User not found');
+
+  const existing = user.pushTokens.find((item) => item.token === token);
+  if (existing) {
+    existing.platform = platform;
+    existing.deviceId = deviceId;
+    existing.updatedAt = new Date();
+  } else {
+    user.pushTokens.push({ token, platform, deviceId, updatedAt: new Date() });
+  }
+  await user.save();
+
+  res.status(200).json({ status: 'success', message: 'Push token registered' });
+});
+
+/**
+ * @desc   Remove device push notification token
+ * @route  POST /api/auth/push-tokens/remove
+ */
+export const removePushToken = asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) throw ApiError.badRequest('Expo push token is required');
+
+  await User.findByIdAndUpdate(req.user._id, { $pull: { pushTokens: { token } } });
+  res.status(200).json({ status: 'success', message: 'Push token removed' });
+});

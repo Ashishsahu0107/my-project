@@ -72,7 +72,15 @@ const userSchema = new mongoose.Schema(
       type: String,
       select: false,
       default: ''
-    }
+    },
+    pushTokens: [
+      {
+        token: { type: String, required: true },
+        platform: { type: String, enum: ['android', 'ios', 'web', 'unknown'], default: 'unknown' },
+        deviceId: { type: String, default: '' },
+        updatedAt: { type: Date, default: Date.now }
+      }
+    ]
   },
   {
     timestamps: true,
@@ -83,6 +91,7 @@ const userSchema = new mongoose.Schema(
         delete ret.refreshToken;
         delete ret.otp;
         delete ret.resetOtp;
+        delete ret.pushTokens;
         delete ret.__v;
         return ret;
       }

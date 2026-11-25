@@ -4,12 +4,12 @@ import { config } from '../config/environment.js';
 // General API rate limiter
 export const apiLimiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.maxRequests,
+  max: config.env === 'development' ? 5000 : config.rateLimit.maxRequests,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
     status: 'error',
-    message: 'Too many requests from this IP, please try again after 15 minutes.'
+    message: 'Too many requests from this IP. Please try again later.'
   }
 });
 

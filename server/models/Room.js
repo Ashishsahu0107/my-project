@@ -9,7 +9,7 @@ const roomSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['channel', 'direct'],
+      enum: ['channel', 'direct', 'group'],
       default: 'channel',
       index: true
     },
@@ -28,6 +28,12 @@ const roomSchema = new mongoose.Schema(
       required: true
     },
     members: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    admins: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'

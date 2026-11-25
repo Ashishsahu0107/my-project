@@ -1,29 +1,18 @@
 {
-  "name": "chat-app-scalable-monorepo",
+  "name": "chatapp-monorepo",
   "version": "1.0.0",
-  "description": "Professional, scalable full-stack real-time Chat Application",
+  "description": "Expo React Native chat app with Express and MongoDB backend",
+  "private": true,
   "scripts": {
-    "install:server": "cd server && npm install",
-    "install:client": "cd client && npm install",
-    "install:all": "npm run install:server && npm run install:client",
-    "dev:server": "cd server && npm run dev",
-    "dev:client": "cd client && npm run dev",
-    "dev": "node -e \"const { spawn } = require('child_process'); spawn('npm', ['run', 'dev'], { cwd: './server', stdio: 'inherit', shell: true }); spawn('npm', ['run', 'dev'], { cwd: './client', stdio: 'inherit', shell: true });\"",
-    "build:client": "cd client && npm run build && rm -rf ../dist && cp -r dist ../dist",
-    "build": "npm run build:client",
-    "start": "cd server && npm start",
-    "test:server": "cd server && npm test"
-  },
-  "keywords": [
-    "chat",
-    "react",
-    "tailwind",
-    "socketio",
-    "express",
-    "mongodb",
-    "jwt",
-    "realtime"
-  ],
-  "author": "",
-  "license": "MIT"
+    "mobile": "npm --prefix mobile run start",
+    "android": "npm --prefix mobile run android",
+    "mobile:typecheck": "npm --prefix mobile run typecheck",
+    "mobile:export": "npm --prefix mobile run export:android",
+    "server": "npm --prefix server run dev",
+    "start:server": "npm --prefix server start",
+    "test:server": "npm --prefix server test",
+    "install:mobile": "npm --prefix mobile install",
+    "install:server": "npm --prefix server install",
+    "install:all": "npm run install:mobile && npm run install:server"
+  }
 }

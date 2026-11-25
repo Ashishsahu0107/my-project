@@ -3,7 +3,9 @@ import {
   getMessagesByRoom,
   sendMessage,
   markRoomMessagesRead,
-  reactToMessage
+  reactToMessage,
+  editMessage,
+  deleteMessage
 } from '../controllers/messageController.js';
 import { authenticateToken } from '../middlewares/authMiddleware.js';
 import { validateMessage } from '../middlewares/validationMiddleware.js';
@@ -16,5 +18,7 @@ router.get('/room/:roomId', getMessagesByRoom);
 router.post('/room/:roomId/read', markRoomMessagesRead);
 router.post('/', validateMessage, sendMessage);
 router.post('/:id/react', reactToMessage);
+router.patch('/:id', editMessage);
+router.delete('/:id', deleteMessage);
 
 export default router;

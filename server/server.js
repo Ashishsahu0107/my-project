@@ -18,11 +18,14 @@ import { notFoundHandler, errorHandler } from './middlewares/errorMiddleware.js'
 import { User } from './models/User.js';
 import { Room } from './models/Room.js';
 import { Message } from './models/Message.js';
+import { sendChatPushNotifications } from './utils/pushNotificationService.js';
 
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import roomRoutes from './routes/roomRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
+import callRoutes from './routes/callRoutes.js';
+import { Call } from './models/Call.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -90,6 +93,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/calls', callRoutes);
 
 // Serve static frontend build if present
 const distPath = path.resolve(__dirname, '../dist');
@@ -141,6 +145,9 @@ io.use(async (socket, next) => {
 // Real-time Presence Map: userId -> Set of socket IDs
 const onlineUserSockets = new Map();
 
+// Active Calls Map: callId -> { callerId, calleeId, type, status, startedAt, dbId }
+const activeCalls = new Map();
+
 io.on('connection', async (socket) => {
   const userId = socket.user._id.toString();
   const username = socket.user.username;
@@ -168,6 +175,10 @@ io.on('connection', async (socket) => {
   // 1. Join Room
   socket.on('room:join', async (roomId) => {
     if (!roomId) return;
+    const room = await Room.findById(roomId).select('members type isPrivate');
+    if (!room) return;
+    const isMember = room.members.some((id) => id.toString() === socket.user._id.toString());
+    if (!isMember && !(room.type === 'channel' && !room.isPrivate)) return;
     socket.join(roomId);
     logger.debug(`User @${username} joined room ${roomId}`);
 
@@ -220,6 +231,14 @@ io.on('connection', async (socket) => {
         return;
       }
 
+      const isMember = room.members.some((id) => id.toString() === socket.user._id.toString());
+      if (!isMember && !(room.type === 'channel' && !room.isPrivate)) {
+        if (typeof callback === 'function') {
+          callback({ status: 'error', message: 'You are not a room member' });
+        }
+        return;
+      }
+
       // Create message in MongoDB
       const message = await Message.create({
         room: roomId,
@@ -256,6 +275,17 @@ io.on('connection', async (socket) => {
           });
         }
       });
+
+      // Send push notifications for mobile devices
+      sendChatPushNotifications({
+        recipientIds: room.members.filter((id) => id.toString() !== userId),
+        senderName: socket.user.username,
+        roomId,
+        roomName: room.name,
+        roomType: room.type,
+        content: content.trim(),
+        messageId: message._id
+      }).catch((err) => logger.warn(`Push notification error: ${err.message}`));
 
       if (typeof callback === 'function') {
         callback({ status: 'ok', data: messageObj });
@@ -345,7 +375,240 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // 7. Disconnection
+  // ─── Call Signaling Events ─────────────────────────────────────────────────
+
+  // 7. Initiate a call
+  socket.on('call:initiate', async ({ calleeId, type, callId }) => {
+    try {
+      if (!calleeId || !type || !callId) return;
+
+      const calleeIdStr = calleeId.toString();
+      const isCalleeOnline = onlineUserSockets.has(calleeIdStr);
+
+      // Check if callee is already in an active call
+      const calleeAlreadyInCall = Array.from(activeCalls.values()).some(
+        (c) => (c.callerId === calleeIdStr || c.calleeId === calleeIdStr) && c.status !== 'ended'
+      );
+
+      if (calleeAlreadyInCall) {
+        socket.emit('call:busy', { callId, reason: 'User is already in a call' });
+        return;
+      }
+
+      if (!isCalleeOnline) {
+        // Create missed call record
+        const callDoc = await Call.create({
+          callId,
+          caller: userId,
+          callee: calleeId,
+          type,
+          status: 'missed',
+          startedAt: new Date(),
+          endedAt: new Date(),
+          endReason: 'missed'
+        });
+        socket.emit('call:failed', { callId, reason: 'user_offline' });
+        logger.info(`Call ${callId}: callee ${calleeIdStr} is offline — marked missed`);
+        return;
+      }
+
+      // Create ringing call record in DB
+      const callDoc = await Call.create({
+        callId,
+        caller: userId,
+        callee: calleeId,
+        type,
+        status: 'ringing',
+        startedAt: new Date()
+      });
+
+      // Track in memory
+      activeCalls.set(callId, {
+        callerId: userId,
+        calleeId: calleeIdStr,
+        type,
+        status: 'ringing',
+        startedAt: new Date(),
+        dbId: callDoc._id
+      });
+
+      // Notify callee
+      io.to(`user:${calleeIdStr}`).emit('call:incoming', {
+        callId,
+        callerId: userId,
+        callerName: socket.user.username,
+        callerAvatar: socket.user.avatar,
+        type
+      });
+
+      // Confirm to caller
+      socket.emit('call:ringing', { callId });
+      logger.info(`Call ${callId}: @${username} → ${calleeIdStr} [${type}]`);
+    } catch (err) {
+      logger.error(`call:initiate error: ${err.message}`);
+      socket.emit('call:failed', { callId, reason: 'server_error' });
+    }
+  });
+
+  // 8. Accept a call
+  socket.on('call:accept', async ({ callId }) => {
+    try {
+      if (!callId) return;
+      const call = activeCalls.get(callId);
+      if (!call || call.calleeId !== userId) return;
+
+      const now = new Date();
+      await Call.findOneAndUpdate(
+        { callId },
+        { status: 'accepted', answeredAt: now }
+      );
+
+      call.status = 'accepted';
+      call.answeredAt = now;
+      activeCalls.set(callId, call);
+
+      io.to(`user:${call.callerId}`).emit('call:accepted', { callId });
+      logger.info(`Call ${callId}: accepted by @${username}`);
+    } catch (err) {
+      logger.error(`call:accept error: ${err.message}`);
+    }
+  });
+
+  // 9. Reject a call
+  socket.on('call:reject', async ({ callId, reason = 'rejected' }) => {
+    try {
+      if (!callId) return;
+      const call = activeCalls.get(callId);
+      if (!call || call.calleeId !== userId) return;
+
+      const now = new Date();
+      const dbStatus = reason === 'busy' ? 'busy' : 'rejected';
+      const endReason = reason === 'busy' ? 'busy' : 'rejected';
+
+      await Call.findOneAndUpdate(
+        { callId },
+        { status: dbStatus, endedAt: now, endReason }
+      );
+
+      activeCalls.delete(callId);
+
+      io.to(`user:${call.callerId}`).emit('call:rejected', { callId, reason });
+      logger.info(`Call ${callId}: rejected by @${username} (reason: ${reason})`);
+    } catch (err) {
+      logger.error(`call:reject error: ${err.message}`);
+    }
+  });
+
+  // 10. End a call (either party)
+  socket.on('call:end', async ({ callId, duration }) => {
+    try {
+      if (!callId) return;
+      const call = activeCalls.get(callId);
+      if (!call) return;
+      if (call.callerId !== userId && call.calleeId !== userId) return;
+
+      const now = new Date();
+      const finalDuration =
+        duration != null
+          ? duration
+          : call.answeredAt
+          ? Math.floor((now - new Date(call.answeredAt)) / 1000)
+          : 0;
+
+      await Call.findOneAndUpdate(
+        { callId },
+        { status: 'ended', endedAt: now, duration: finalDuration, endReason: 'completed' }
+      );
+
+      activeCalls.delete(callId);
+
+      // Notify the OTHER party
+      const otherUserId = call.callerId === userId ? call.calleeId : call.callerId;
+      io.to(`user:${otherUserId}`).emit('call:ended', { callId });
+      logger.info(`Call ${callId}: ended by @${username} (duration: ${finalDuration}s)`);
+    } catch (err) {
+      logger.error(`call:end error: ${err.message}`);
+    }
+  });
+
+  // 11. Cancel a call (caller cancels before callee answers)
+  socket.on('call:cancel', async ({ callId }) => {
+    try {
+      if (!callId) return;
+      const call = activeCalls.get(callId);
+      if (!call || call.callerId !== userId) return;
+
+      await Call.findOneAndUpdate(
+        { callId },
+        { status: 'missed', endedAt: new Date(), endReason: 'cancelled' }
+      );
+
+      activeCalls.delete(callId);
+
+      io.to(`user:${call.calleeId}`).emit('call:cancelled', { callId });
+      logger.info(`Call ${callId}: cancelled by caller @${username}`);
+    } catch (err) {
+      logger.error(`call:cancel error: ${err.message}`);
+    }
+  });
+
+  // 12. No answer (timeout, typically 45s — emitted by caller client)
+  socket.on('call:no_answer', async ({ callId }) => {
+    try {
+      if (!callId) return;
+      const call = activeCalls.get(callId);
+      if (!call || call.callerId !== userId) return;
+
+      await Call.findOneAndUpdate(
+        { callId },
+        { status: 'missed', endedAt: new Date(), endReason: 'missed' }
+      );
+
+      activeCalls.delete(callId);
+
+      io.to(`user:${call.calleeId}`).emit('call:missed', {
+        callId,
+        callerName: socket.user.username
+      });
+      logger.info(`Call ${callId}: no answer — marked missed`);
+    } catch (err) {
+      logger.error(`call:no_answer error: ${err.message}`);
+    }
+  });
+
+  // 13. WebRTC Offer relay
+  socket.on('call:webrtc_offer', ({ callId, offer, targetUserId }) => {
+    if (!callId || !offer || !targetUserId) return;
+    io.to(`user:${targetUserId}`).emit('call:webrtc_offer', {
+      callId,
+      offer,
+      fromUserId: userId
+    });
+  });
+
+  // 14. WebRTC Answer relay
+  socket.on('call:webrtc_answer', ({ callId, answer, targetUserId }) => {
+    if (!callId || !answer || !targetUserId) return;
+    io.to(`user:${targetUserId}`).emit('call:webrtc_answer', {
+      callId,
+      answer,
+      fromUserId: userId
+    });
+  });
+
+  // 15. WebRTC ICE Candidate relay
+  socket.on('call:webrtc_ice', ({ callId, candidate, targetUserId }) => {
+    if (!callId || !candidate || !targetUserId) return;
+    io.to(`user:${targetUserId}`).emit('call:webrtc_ice', {
+      callId,
+      candidate,
+      fromUserId: userId
+    });
+  });
+
+  // ─── Disconnection ─────────────────────────────────────────────────────────
+
+  // 16. Disconnection
   socket.on('disconnect', async () => {
     logger.info(`Socket disconnected: @${username} [socket: ${socket.id}]`);
     const userSockets = onlineUserSockets.get(userId);
@@ -355,6 +618,28 @@ io.on('connection', async (socket) => {
         onlineUserSockets.delete(userId);
         io.emit('user:status', { userId, status: 'offline', lastSeen: new Date() });
         await User.findByIdAndUpdate(userId, { status: 'offline', lastSeen: new Date() }).catch(() => {});
+
+        // Handle any active calls involving this user
+        for (const [callId, call] of activeCalls.entries()) {
+          if (call.callerId === userId || call.calleeId === userId) {
+            try {
+              await Call.findOneAndUpdate(
+                { callId },
+                { status: 'ended', endedAt: new Date(), endReason: 'network_error' }
+              );
+              activeCalls.delete(callId);
+
+              const otherUserId = call.callerId === userId ? call.calleeId : call.callerId;
+              io.to(`user:${otherUserId}`).emit('call:ended', {
+                callId,
+                reason: 'network_error'
+              });
+              logger.warn(`Call ${callId}: ended due to disconnect of @${username}`);
+            } catch (err) {
+              logger.error(`Error cleaning up call ${callId} on disconnect: ${err.message}`);
+            }
+          }
+        }
       }
     }
   });

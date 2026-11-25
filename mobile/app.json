@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "ChatApp",
+    "slug": "chatapp-mobile",
+    "scheme": "chatapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "ChatApp uses your camera for video calls",
+        "NSMicrophoneUsageDescription": "ChatApp uses your microphone for audio and video calls"
+      }
+    },
+    "android": {
+      "package": "com.chatapp.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#020617"
+      },
+      "predictiveBackGestureEnabled": false,
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_CONNECT"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-status-bar",
+      "expo-notifications",
+      [
+        "react-native-webrtc",
+        {
+          "cameraPermission": "Allow ChatApp to access your camera for video calls",
+          "microphonePermission": "Allow ChatApp to access your microphone for calls"
+        }
+      ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
+  }
+}

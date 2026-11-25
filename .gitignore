@@ -1,5 +1,9 @@
 # What a project can make again, and nobody needs to keep.
 node_modules/
+mobile/node_modules/
+mobile/dist/
+mobile/.expo/
+server/node_modules/
 .venv/
 venv/
 __pycache__/
@@ -12,3 +16,20 @@ DerivedData/
 .cache/
 .DS_Store
 *.log
+
+# Environment credentials
+.env
+.env.local
+.env.*.local
+mobile/.env
+mobile/.env.local
+mobile/.env.*.local
+server/.env
+server/.env.local
+server/.env.*.local
+
+# Do not ignore environment templates
+!.env.example
+!server/.env.example
+!client/.env.example
+!mobile/.env.example
